@@ -719,8 +719,10 @@ def retrieval_map(features, labels):
     aps, top1 = [], []
     for i in range(n):
         order = np.argsort(-sim[i])
+        order = order[:-1]  # buang diri sendiri (di posisi terakhir karena -inf)
         rel = (labels[order] == labels[i]).astype(int)
-        top1.append(rel[0])
+        if len(rel) > 0:
+            top1.append(rel[0])
         if rel.sum() == 0:
             continue
         cum = np.cumsum(rel)
@@ -819,7 +821,8 @@ def train_one_run(manifest, rc: RunConfig, out_dir, device, hp: dict) -> dict:
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(1, rc.epochs))
     crit = torch.nn.CrossEntropyLoss()
     use_amp = hp.get("amp", False) and device != "cpu"
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    amp_device = "cuda" if device != "cpu" else "cpu"
+    scaler = torch.amp.GradScaler(amp_device, enabled=use_amp)
     best_acc, best_state, patience, bad = -1.0, None, hp.get("early_stop_patience", 8), 0
     t0, epochs_ran = time.time(), 0
     for epoch in range(rc.epochs):
@@ -827,7 +830,7 @@ def train_one_run(manifest, rc: RunConfig, out_dir, device, hp: dict) -> dict:
         for x, y in tl:
             x, y = x.to(device), y.to(device)
             opt.zero_grad()
-            with torch.cuda.amp.autocast(enabled=use_amp):
+            with torch.amp.autocast(amp_device, enabled=use_amp):
                 loss = crit(model(x), y)
             scaler.scale(loss).backward(); scaler.step(opt); scaler.update()
         sched.step(); epochs_ran += 1

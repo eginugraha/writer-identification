@@ -33,6 +33,18 @@ def pivot_markdown(df, metric: str, mode: str) -> str:
         lines.append(f"| {a} | " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
+def efficiency_markdown(df, mode: str) -> str:
+    s = df[df["mode"] == mode]
+    cols = [c for c in ("n_params", "throughput_img_s", "train_time_s") if c in s.columns]
+    g = s.groupby("arch")[cols].mean().reset_index()
+    header = "| arch | " + " | ".join(cols) + " |"
+    sep = "|" + "---|" * (len(cols) + 1)
+    lines = [header, sep]
+    for _, row in g.sort_values("arch").iterrows():
+        cells = [f"{row[c]:.3f}" for c in cols]
+        lines.append(f"| {row['arch']} | " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
 def plot_accuracy_vs_n(df, mode: str, out_png):
     s = summarize(df); s = s[s["mode"] == mode]
     plt.figure(figsize=(7, 5))

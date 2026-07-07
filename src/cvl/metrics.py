@@ -32,4 +32,4 @@ def retrieval_map(features, labels):
         cum = np.cumsum(rel)
         precision_at_hits = cum[rel == 1] / (np.where(rel == 1)[0] + 1)
         aps.append(precision_at_hits.mean())
-    return float(np.mean(aps)) if aps else 0.0, float(np.mean(top1))
+    return float(np.mean(aps)) if aps else 0.0, float(np.mean(top1)) if top1 else 0.0
