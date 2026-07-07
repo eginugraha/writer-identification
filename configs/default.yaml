@@ -1,0 +1,10 @@
+image_size: 224
+batch_size: 64
+val_frac: 0.1
+pretrained_epochs: 40
+scratch_epochs: 150
+early_stop_patience: 8
+lr: 0.0003
+weight_decay: 0.05
+num_workers: 8
+amp: true
