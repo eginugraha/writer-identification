@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import pandas as pd
+import numpy as np
 from .config import EXCLUDE_WRITERS, MIN_PAGES
 
 _LINE_RE = re.compile(r"^(\d+)-(\d+)-(\d+)\.tif$", re.IGNORECASE)
@@ -36,3 +37,34 @@ def filter_cohort(df, min_pages: int = MIN_PAGES, exclude: set = EXCLUDE_WRITERS
         "dropped_writers": dropped,
     }
     return kept, info
+
+def build_label_map(df) -> dict:
+    return {w: i for i, w in enumerate(sorted(df["writer"].unique()))}
+
+def _page_sort_key(p: str):
+    return (int(p) if p.isdigit() else p)
+
+def build_manifest(df, n_train_pages, seed: int, test_pages: int = 1, val_frac: float = 0.1):
+    label_map = build_label_map(df)
+    rng = np.random.default_rng(seed)
+    parts = []
+    for writer, g in df.groupby("writer"):
+        pages = sorted(g["page"].unique(), key=_page_sort_key)
+        test_p = set(pages[-test_pages:])
+        pool = [p for p in pages if p not in test_p]
+        if n_train_pages is not None:
+            chosen = list(rng.permutation(pool))[:n_train_pages]
+        else:
+            chosen = pool
+        g = g.copy()
+        g["label"] = label_map[writer]
+        g["split"] = "unused"
+        g.loc[g["page"].isin(test_p), "split"] = "test"
+        train_mask = g["page"].isin(chosen)
+        train_lines = g[train_mask].sort_values(["page", "line"])
+        n_val = max(1, int(round(len(train_lines) * val_frac))) if len(train_lines) > 1 else 0
+        val_idx = set(rng.permutation(train_lines.index)[:n_val].tolist())
+        g.loc[train_mask, "split"] = "train"
+        g.loc[g.index.isin(val_idx), "split"] = "val"
+        parts.append(g[g["split"] != "unused"])
+    return pd.concat(parts, ignore_index=True)
