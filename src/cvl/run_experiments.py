@@ -32,7 +32,8 @@ def run_grid(manifest_by_seed_level, archs, levels, modes, seeds,
                         print(f"skip {rid}"); continue
                     epochs = hp["pretrained_epochs"] if mode == "pretrained" else hp["scratch_epochs"]
                     rc = RunConfig(arch=arch, level=level, mode=mode, seed=seed,
-                                   epochs=epochs, lr=hp["lr"], batch_size=hp["batch_size"])
+                                   epochs=epochs, lr=hp["lr"], batch_size=hp["batch_size"],
+                                   weight_decay=hp.get("weight_decay", 0.05))
                     out_dir = ckpt_root / rid
                     tr = train_one_run(manifest, rc, out_dir, device, hp)
                     ev = evaluate_checkpoint(out_dir / "best.pt", manifest, arch, device,
