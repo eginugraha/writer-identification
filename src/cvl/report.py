@@ -1,0 +1,48 @@
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import pandas as pd
+
+_METRICS = ["top1_page", "top5_page", "macro_f1_page", "map_line", "top1_retrieval"]
+
+def summarize(df):
+    present = [m for m in _METRICS if m in df.columns]
+    g = df.groupby(["arch", "level", "mode"])[present].agg(["mean", "std"]).reset_index()
+    g.columns = ["arch", "level", "mode"] + [f"{m}_{s}" for m in present for s in ("mean", "std")]
+    return g
+
+def _level_order(v):
+    return 999 if v == "full" else int(v)
+
+def pivot_markdown(df, metric: str, mode: str) -> str:
+    s = summarize(df)
+    s = s[s["mode"] == mode]
+    levels = sorted(s["level"].unique(), key=_level_order)
+    archs = sorted(s["arch"].unique())
+    header = "| arch | " + " | ".join(f"N={l}" for l in levels) + " |"
+    sep = "|" + "---|" * (len(levels) + 1)
+    lines = [header, sep]
+    for a in archs:
+        cells = []
+        for l in levels:
+            row = s[(s.arch == a) & (s.level == l)]
+            if len(row):
+                cells.append(f"{row[f'{metric}_mean'].iloc[0]:.3f}±{row[f'{metric}_std'].iloc[0]:.3f}")
+            else:
+                cells.append("-")
+        lines.append(f"| {a} | " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+def plot_accuracy_vs_n(df, mode: str, out_png):
+    s = summarize(df); s = s[s["mode"] == mode]
+    plt.figure(figsize=(7, 5))
+    for a in sorted(s["arch"].unique()):
+        sub = s[s.arch == a].copy()
+        sub["ord"] = sub["level"].map(_level_order)
+        sub = sub.sort_values("ord")
+        plt.errorbar(range(len(sub)), sub["top1_page_mean"], yerr=sub["top1_page_std"],
+                     marker="o", label=a, capsize=3)
+        plt.xticks(range(len(sub)), [str(x) for x in sub["level"]])
+    plt.xlabel("halaman latih / penulis (N)"); plt.ylabel("Top-1 (halaman)")
+    plt.title(f"Akurasi vs data latih ({mode})"); plt.legend(); plt.grid(alpha=0.3)
+    plt.tight_layout(); plt.savefig(out_png, dpi=150); plt.close()
