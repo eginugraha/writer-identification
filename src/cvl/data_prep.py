@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import pandas as pd
+from .config import EXCLUDE_WRITERS, MIN_PAGES
 
 _LINE_RE = re.compile(r"^(\d+)-(\d+)-(\d+)\.tif$", re.IGNORECASE)
 
@@ -22,3 +23,16 @@ def scan_lines(root: Path) -> pd.DataFrame:
             continue
         rows.append((writer, page, line, str(tif.resolve())))
     return pd.DataFrame(rows, columns=["writer", "page", "line", "path"])
+
+def filter_cohort(df, min_pages: int = MIN_PAGES, exclude: set = EXCLUDE_WRITERS):
+    df = df[~df["writer"].isin(exclude)].copy()
+    pages_per_writer = df.groupby("writer")["page"].nunique()
+    keep = pages_per_writer[pages_per_writer >= min_pages].index
+    dropped = sorted(set(pages_per_writer.index) - set(keep))
+    kept = df[df["writer"].isin(keep)].copy()
+    info = {
+        "n_excluded_rule": len(dropped),
+        "n_kept_writers": len(keep),
+        "dropped_writers": dropped,
+    }
+    return kept, info
