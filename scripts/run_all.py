@@ -1,7 +1,9 @@
+import sys
 import yaml
 from pathlib import Path
 import pandas as pd
 import torch
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.cvl.config import ARCHITECTURES, ABLATION_LEVELS, SEEDS
 from src.cvl.run_experiments import run_grid
 

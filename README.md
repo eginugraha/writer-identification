@@ -34,7 +34,9 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-> Butuh Python ≥3.10. Dependensi utama: torch, timm, pandas, scikit-learn, Pillow, pyyaml, matplotlib.
+> Butuh Python ≥3.10. Dependensi utama: torch, timm, pandas, pyarrow, scikit-learn, Pillow, pyyaml, matplotlib.
+>
+> Jalankan semua perintah `python scripts/...` **dari root repo** (`thesis/`). Skrip otomatis menemukan package `src.cvl` sendiri, tapi path data (`configs/`, `results/`, `cvl-database-1-1/`) relatif terhadap direktori kerja.
 
 ### 2. Taruh dataset
 
