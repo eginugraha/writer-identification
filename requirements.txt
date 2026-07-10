@@ -3,6 +3,7 @@ torchvision
 timm>=1.0.0
 numpy
 pandas
+pyarrow
 scikit-learn
 Pillow
 pyyaml

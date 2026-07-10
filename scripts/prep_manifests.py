@@ -1,4 +1,6 @@
+import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.cvl.config import lines_root, ABLATION_LEVELS, SEEDS
 from src.cvl.data_prep import scan_lines, filter_cohort, build_manifest
 
