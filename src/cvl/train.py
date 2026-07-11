@@ -41,14 +41,18 @@ def train_one_run(manifest, rc: RunConfig, out_dir, device, hp: dict) -> dict:
     scaler = torch.amp.GradScaler(amp_device, enabled=use_amp)
     best_acc, best_state, patience, bad = -1.0, None, hp.get("early_stop_patience", 8), 0
     t0, epochs_ran = time.time(), 0
+    lvl = "full" if rc.level is None else str(rc.level)
+    tag = f"{rc.arch}_L{lvl}_{rc.mode}_s{rc.seed}"
     for epoch in range(rc.epochs):
         model.train()
+        loss_sum = n_seen = 0
         for x, y in tl:
             x, y = x.to(device), y.to(device)
             opt.zero_grad()
             with torch.amp.autocast(amp_device, enabled=use_amp):
                 loss = crit(model(x), y)
             scaler.scale(loss).backward(); scaler.step(opt); scaler.update()
+            loss_sum += loss.item() * len(x); n_seen += len(x)
         sched.step(); epochs_ran += 1
         # validasi
         model.eval(); correct = total = 0
@@ -57,11 +61,19 @@ def train_one_run(manifest, rc: RunConfig, out_dir, device, hp: dict) -> dict:
                 x, y = x.to(device), y.to(device)
                 correct += (model(x).argmax(1) == y).sum().item(); total += len(y)
         acc = correct / max(1, total)
-        if acc > best_acc:
+        improved = acc > best_acc
+        if improved:
             best_acc, best_state, bad = acc, {k: v.cpu() for k, v in model.state_dict().items()}, 0
         else:
             bad += 1
-            if bad >= patience:
-                break
+        train_loss = loss_sum / max(1, n_seen)
+        print(f"  [{tag}] epoch {epoch + 1}/{rc.epochs} "
+              f"loss={train_loss:.4f} val_acc={acc:.4f} "
+              f"best={best_acc:.4f}{' *' if improved else ''} "
+              f"patience={bad}/{patience} elapsed={time.time() - t0:.0f}s",
+              flush=True)
+        if not improved and bad >= patience:
+            print(f"  [{tag}] early stop @ epoch {epoch + 1} (best_val_acc={best_acc:.4f})", flush=True)
+            break
     torch.save(best_state or model.state_dict(), out_dir / "best.pt")
     return {"best_val_acc": float(best_acc), "train_time_s": time.time() - t0, "epochs_ran": epochs_ran}
