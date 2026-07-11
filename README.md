@@ -12,6 +12,7 @@ Desain lengkap: `dokumentasi/06-desain-eksperimen-implementasi.md` · Rencana im
 src/cvl/          # package pipeline (data_prep, dataset, models, metrics, train, evaluate, run_experiments, report)
 scripts/          # entry-point: prep_manifests.py, run_all.py, make_report.py
 configs/          # default.yaml (hyperparameter)
+.env.example      # contoh subset grid / smoke test (salin ke .env)
 tests/            # pytest (26 test, jalan di CPU)
 cvl-database-1-1/ # DATASET (tidak di-commit — taruh manual)
 results/          # manifests, checkpoints, results.csv, figures (dibuat otomatis)
@@ -74,9 +75,7 @@ python scripts/run_all.py
 - Output: `results/results.csv` (1 baris/run: Top-1/Top-5/macro-F1 halaman, mAP & Top-1 retrieval, n_params, throughput, waktu latih), checkpoint terbaik di `results/checkpoints/<run_id>/best.pt`.
 - Pantau progres: tiap run mencetak `done <run_id>: top1=... map=...`.
 
-**Menghemat jam GPU** (opsional, kalau biaya jadi kendala) — edit `scripts/run_all.py`:
-- `modes=["pretrained"]` → lewati semua from-scratch (dari 150 → 75 run), atau
-- kurangi `SEEDS` untuk mode scratch, atau jalankan from-scratch hanya pada sebagian level.
+**Menghemat jam GPU / smoke test** (opsional) — atur lewat file `.env` di root repo, **tanpa** ngedit kode (lihat [Konfigurasi lewat `.env`](#konfigurasi-lewat-env)). Mis. `CVL_MODES=pretrained` melewati semua from-scratch (150 → 75 run).
 
 Run **from-scratch + data penuh** yang paling lama; pretrained + N kecil sangat cepat.
 
@@ -102,7 +101,33 @@ Seluruh logika pipeline diuji via smoke test dengan fixture kecil di CPU:
 
 ## Konfigurasi
 
-`configs/default.yaml` — batch size, jumlah epoch (pretrained/scratch), learning rate, weight decay, patience early-stopping, num_workers, AMP. Arsitektur, level ablasi, dan seed didefinisikan di `src/cvl/config.py` (`ARCHITECTURES`, `ABLATION_LEVELS`, `SEEDS`).
+`configs/default.yaml` — batch size, jumlah epoch (pretrained/scratch), learning rate, weight decay, patience early-stopping, num_workers, AMP. Katalog penuh arsitektur, level ablasi, dan seed didefinisikan di `src/cvl/config.py` (`ALL_ARCHITECTURES`, `ALL_ABLATION_LEVELS`, `ALL_SEEDS`).
+
+### Konfigurasi lewat `.env`
+
+Untuk **mempersempit grid** (smoke test / hemat GPU) tanpa mengedit kode, buat file `.env` di root repo (dibaca otomatis oleh `src/cvl/config.py`). Salin dari contoh:
+
+```bash
+cp .env.example .env
+```
+
+| Variabel | Arti | Contoh | Penuh (default bila kosong) |
+|---|---|---|---|
+| `CVL_ARCHS` | subset arsitektur | `resnet50` | `resnet50,convnext_tiny,efficientnetv2_s,vit_small,swin_tiny` |
+| `CVL_LEVELS` | level ablasi (`full`=semua halaman) | `1,full` | `1,2,3,4,full` |
+| `CVL_SEEDS` | seed | `0` | `0,1,2` |
+| `CVL_MODES` | mode | `pretrained` | `pretrained,scratch` |
+| `CVL_MAX_WRITERS` | batasi jumlah penulis | `10` | semua penulis |
+| `CVL_PRETRAINED_EPOCHS` / `CVL_SCRATCH_EPOCHS` | override epoch | `2` | dari `default.yaml` |
+| `CVL_BATCH_SIZE` | override batch size | `32` | dari `default.yaml` |
+
+Aturannya: **baris yang diisi = subset; dikosongkan/dihapus = pakai nilai penuh.** Hapus `.env` (atau kosongkan semua) → otomatis kembali ke grid penuh 150 run.
+
+> `CVL_MAX_WRITERS` memengaruhi manifest, jadi ubah nilainya lalu **jalankan ulang `prep_manifests.py`** sebelum `run_all.py`.
+>
+> Environment variable menang atas isi `.env`, jadi bisa override sekali jalan: `CVL_MODES=pretrained python scripts/run_all.py`.
+>
+> `.env` **tidak** di-commit (masuk `.gitignore`); hanya `.env.example` yang ikut repo.
 
 ## Catatan
 
