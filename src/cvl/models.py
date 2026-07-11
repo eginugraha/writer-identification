@@ -1,10 +1,10 @@
 import timm
 import torch
-from .config import ARCHITECTURES
+from .config import ALL_ARCHITECTURES
 
 def build_model(arch_key: str, num_classes: int, pretrained: bool):
     return timm.create_model(
-        ARCHITECTURES[arch_key], pretrained=pretrained, num_classes=num_classes
+        ALL_ARCHITECTURES[arch_key], pretrained=pretrained, num_classes=num_classes
     )
 
 def forward_features(model, x):
