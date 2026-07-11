@@ -81,17 +81,22 @@ Dibuat di `build_manifest()` (`src/cvl/data_prep.py`), **per penulis**, berbasis
 2. **Train** — dari sisa halaman, diambil sebanyak **level ablasi** (1/2/3/4 halaman, atau semua untuk `full`), dipilih acak menurut `seed`.
 3. **Val** — **10%** dari baris train (`val_frac=0.1`) untuk *early-stopping*.
 
-Karena train dibatasi per **level ablasi**, ukurannya berbeda tiap level (test selalu tetap):
+Karena train dibatasi per **level ablasi**, ukurannya berbeda tiap level (test selalu tetap). Persentase dihitung terhadap **baris yang dipakai pada level itu** (train+val+test; sisa halaman di level rendah berstatus *unused*):
 
-| Level | Train (baris) | Val (baris) | Test (baris) |
-|---|---:|---:|---:|
-| L1 (1 halaman) | 2.285 | 310 | 2.490 |
-| L2 (2 halaman) | 4.665 | 545 | 2.490 |
-| L3 (3 halaman) | 7.113 | 765 | 2.490 |
-| L4 (4 halaman) | 9.455 | 1.056 | 2.490 |
-| Lfull (semua) | 9.852 | 1.098 | 2.490 |
+| Level | Train (baris) | Val (baris) | Test (baris) | Train % | Val % | Test % |
+|---|---:|---:|---:|---:|---:|---:|
+| L1 (1 halaman) | 2.285 | 310 | 2.490 | 44,9% | 6,1% | 49,0% |
+| L2 (2 halaman) | 4.665 | 545 | 2.490 | 60,6% | 7,1% | 32,3% |
+| L3 (3 halaman) | 7.113 | 765 | 2.490 | 68,6% | 7,4% | 24,0% |
+| L4 (4 halaman) | 9.455 | 1.056 | 2.490 | 72,7% | 8,1% | 19,2% |
+| **Lfull (semua)** | 9.852 | 1.098 | 2.490 | **73,3%** | **8,2%** | **18,5%** |
 
 *(angka untuk seed 0; seed lain mirip karena pemilihan halaman acak)*
+
+**Catatan membaca persentase:**
+- **Test** jumlahnya tetap (2.490 baris), tapi **porsinya mengecil** saat level naik — karena train membesar. Di L1, test malah lebih besar dari train (train cuma 1 halaman).
+- Pada **Lfull** semua baris terpakai (tidak ada *unused*), sehingga persentasenya dihitung terhadap total dataset penuh (13.440 baris): **train ~73% · val ~8% · test ~18%**, atau kalau train+val digabung sebagai porsi latih: **~82% latih / ~18% test**.
+- Untuk level di bawah `full`, halaman yang tidak terpilih jadi *unused* dan tidak masuk hitungan — jadi persentase di atas relatif terhadap data yang benar-benar dipakai pada level tersebut, bukan terhadap 13.440.
 
 ## Bagaimana dataset dipakai saat evaluasi
 
