@@ -2,11 +2,9 @@ __pycache__/
 *.pyc
 .venv/
 results/checkpoints/
-results/manifests/
-results/*.csv
-results/figures/
 .pytest_cache/
 .env
 cvl-database-1-1/
 cvl-database-cropped-1-1/
 .superpowers/
+cvl-database-1-1.zip
