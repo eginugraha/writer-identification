@@ -3,6 +3,14 @@ import pandas as pd
 from .train import RunConfig, train_one_run
 from .evaluate import evaluate_checkpoint
 
+# Override LR per (arch, mode). ConvNeXt-Tiny divergen saat fine-tune pada LR
+# bersama 3e-4 (kolaps ke prediksi 1 kelas, top1 ~0.003); arsitektur lain stabil.
+# Ini sensitivitas fine-tuning yang memang dikenal pada ConvNeXt, jadi khusus
+# jalur pretrained-nya LR diturunkan ke 1e-4. Dicatat di metodologi skripsi.
+LR_OVERRIDES = {
+    ("convnext_tiny", "pretrained"): 1e-4,
+}
+
 def run_id(arch, level, mode, seed) -> str:
     lvl = "full" if level is None else str(level)
     return f"{arch}_L{lvl}_{mode}_s{seed}"
@@ -31,9 +39,12 @@ def run_grid(manifest_by_seed_level, archs, levels, modes, seeds,
                     if already_done(results_csv, rid):
                         print(f"skip {rid}"); continue
                     epochs = hp["pretrained_epochs"] if mode == "pretrained" else hp["scratch_epochs"]
+                    lr = LR_OVERRIDES.get((arch, mode), hp["lr"])
                     rc = RunConfig(arch=arch, level=level, mode=mode, seed=seed,
-                                   epochs=epochs, lr=hp["lr"], batch_size=hp["batch_size"],
+                                   epochs=epochs, lr=lr, batch_size=hp["batch_size"],
                                    weight_decay=hp.get("weight_decay", 0.05))
+                    if lr != hp["lr"]:
+                        print(f"  [{rid}] LR override -> {lr:g} (default {hp['lr']:g})")
                     out_dir = ckpt_root / rid
                     tr = train_one_run(manifest, rc, out_dir, device, hp)
                     ev = evaluate_checkpoint(out_dir / "best.pt", manifest, arch, device,
