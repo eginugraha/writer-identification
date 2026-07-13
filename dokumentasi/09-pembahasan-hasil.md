@@ -60,7 +60,7 @@ per penulis, dari $N{=}1$ hingga $N{=}4$. Pada kondisi data terbanyak ($N{=}4$),
 kelima model mencapai Top-1 yang tinggi (0.942–0.977), mengindikasikan bahwa
 representasi yang dipelajari dari pra-pelatihan ImageNet dapat ditransfer secara
 efektif ke domain tulisan tangan CVL meski jumlah kelas penulis relatif besar
-(155 penulis).
+(308 penulis).
 
 Secara ringkas (Tabel~\ref{tab:pretrained-summary}), Swin-T dan ConvNeXt-T
 menempati posisi teratas dengan rerata Top-1 identik (0.904), disusul
@@ -85,6 +85,8 @@ lebih besar (~28 juta) untuk peningkatan yang marginal. Dengan demikian, apabila
 efisiensi menjadi pertimbangan, EfficientNetV2-S merupakan kandidat paling
 seimbang; apabila akurasi absolut diprioritaskan, Swin-T atau ConvNeXt-T lebih
 tepat.
+
+![Leaderboard arsitektur mode pretrained](../results/figures/leaderboard_pretrained.png)
 
 ---
 
@@ -149,6 +151,8 @@ seperti CVL, penggunaan bobot *pretrained* sangat dianjurkan untuk semua
 arsitektur; apabila pelatihan dari nol tidak dapat dihindari (mis. karena kendala
 domain), CNN (EfficientNetV2-S/ResNet-50) atau ViT merupakan pilihan yang lebih
 aman dibanding ConvNeXt/Swin.
+
+![Trainability dari scratch @ data penuh](../results/figures/scratch_trainability.png)
 
 ---
 
