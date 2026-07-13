@@ -14,10 +14,11 @@ def summarize(df):
 def _level_order(v):
     return 999 if v == "full" else int(v)
 
-def pivot_markdown(df, metric: str, mode: str) -> str:
+def pivot_markdown(df, metric: str, mode: str, exclude_levels=()) -> str:
     s = summarize(df)
     s = s[s["mode"] == mode]
-    levels = sorted(s["level"].unique(), key=_level_order)
+    exclude = {str(x) for x in exclude_levels}
+    levels = [l for l in sorted(s["level"].unique(), key=_level_order) if str(l) not in exclude]
     archs = sorted(s["arch"].unique())
     header = "| arch | " + " | ".join(f"N={l}" for l in levels) + " |"
     sep = "|" + "---|" * (len(levels) + 1)
@@ -33,6 +34,28 @@ def pivot_markdown(df, metric: str, mode: str) -> str:
         lines.append(f"| {a} | " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
+def scratch_trainability_markdown(df, level="full", metric="top1_page", thresh=0.3) -> str:
+    """Tabel per-seed di satu level (default data penuh) untuk mode scratch.
+    Menampilkan berapa seed yang berhasil dilatih (metric > thresh)."""
+    s = df[(df["mode"] == "scratch") & (df["level"].astype(str) == str(level))]
+    archs = sorted(s["arch"].unique())
+    seeds = sorted(s["seed"].unique())
+    header = "| arch | " + " | ".join(f"seed {sd}" for sd in seeds) + " | rata2 | latih |"
+    sep = "|" + "---|" * (len(seeds) + 3)
+    lines = [header, sep]
+    for a in archs:
+        sub = s[s.arch == a]
+        vals = []
+        for sd in seeds:
+            row = sub[sub.seed == sd]
+            vals.append(float(row[metric].iloc[0]) if len(row) else float("nan"))
+        mean = sum(vals) / len(vals) if vals else float("nan")
+        ok = sum(1 for v in vals if v > thresh)
+        cells = " | ".join(f"{v:.3f}" for v in vals)
+        lines.append(f"| {a} | {cells} | {mean:.3f} | {ok}/{len(seeds)} |")
+    return "\n".join(lines)
+
+
 def efficiency_markdown(df, mode: str) -> str:
     s = df[df["mode"] == mode]
     cols = [c for c in ("n_params", "throughput_img_s", "train_time_s") if c in s.columns]
@@ -45,8 +68,10 @@ def efficiency_markdown(df, mode: str) -> str:
         lines.append(f"| {row['arch']} | " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
-def plot_accuracy_vs_n(df, mode: str, out_png):
+def plot_accuracy_vs_n(df, mode: str, out_png, exclude_levels=()):
     s = summarize(df); s = s[s["mode"] == mode]
+    exclude = {str(x) for x in exclude_levels}
+    s = s[~s["level"].astype(str).isin(exclude)]
     plt.figure(figsize=(7, 5))
     for a in sorted(s["arch"].unique()):
         sub = s[s.arch == a].copy()
