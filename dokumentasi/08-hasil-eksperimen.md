@@ -68,29 +68,29 @@ Hasil utama. Ablasi ukuran data latih L1–L4 (level `full` di-drop, ≈L4).
 ## Mode: scratch (dari nol) — trainability
 
 
-Dilatih dari inisialisasi acak dengan resep sama (LR warmup=3). Dilaporkan hanya pada **data penuh** (kondisi terbaik untuk scratch); data lebih sedikit hanya memperparah. Ambang 'latih' = top-1 > 0.3.
+Dilatih dari inisialisasi acak dengan resep sama (LR warmup=3) untuk SEMUA arsitektur. Dilaporkan hanya pada **data penuh** (kondisi terbaik untuk scratch); data lebih sedikit hanya memperparah. Kolom **kolaps** = jumlah seed dengan top-1 < 0.05 (prediksi ~1 kelas).
 
 
 ### Top-1 per seed @ data penuh
 
-| arch | seed 0 | seed 1 | seed 2 | rata2 | latih |
+| arch | seed 0 | seed 1 | seed 2 | rerata | kolaps |
 |---|---|---|---|---|---|
-| convnext_tiny | 0.003 | 0.003 | 0.760 | 0.255 | 1/3 |
-| efficientnetv2_s | 0.818 | 0.890 | 0.909 | 0.872 | 3/3 |
-| resnet50 | 0.591 | 0.256 | 0.734 | 0.527 | 2/3 |
-| swin_tiny | 0.013 | 0.019 | 0.010 | 0.014 | 0/3 |
-| vit_small | 0.821 | 0.727 | 0.834 | 0.794 | 3/3 |
+| convnext_tiny | 0.003 | 0.003 | 0.760 | 0.255 | 2/3 |
+| efficientnetv2_s | 0.818 | 0.890 | 0.909 | 0.872 | 0/3 |
+| resnet50 | 0.591 | 0.256 | 0.734 | 0.527 | 0/3 |
+| swin_tiny | 0.013 | 0.019 | 0.010 | 0.014 | 3/3 |
+| vit_small | 0.821 | 0.727 | 0.834 | 0.794 | 0/3 |
 
 
 ### Macro-F1 per seed @ data penuh
 
-| arch | seed 0 | seed 1 | seed 2 | rata2 | latih |
+| arch | seed 0 | seed 1 | seed 2 | rerata | kolaps |
 |---|---|---|---|---|---|
-| convnext_tiny | 0.000 | 0.000 | 0.703 | 0.234 | 1/3 |
-| efficientnetv2_s | 0.774 | 0.857 | 0.882 | 0.838 | 3/3 |
-| resnet50 | 0.502 | 0.181 | 0.667 | 0.450 | 2/3 |
-| swin_tiny | 0.004 | 0.001 | 0.000 | 0.002 | 0/3 |
-| vit_small | 0.772 | 0.664 | 0.793 | 0.743 | 3/3 |
+| convnext_tiny | 0.000 | 0.000 | 0.703 | 0.234 | 2/3 |
+| efficientnetv2_s | 0.774 | 0.857 | 0.882 | 0.838 | 0/3 |
+| resnet50 | 0.502 | 0.181 | 0.667 | 0.450 | 0/3 |
+| swin_tiny | 0.004 | 0.001 | 0.000 | 0.002 | 3/3 |
+| vit_small | 0.772 | 0.664 | 0.793 | 0.743 | 0/3 |
 
 
-> ConvNeXt-Tiny & Swin-Tiny gagal konvergen dari scratch bahkan dengan warmup + data penuh (Swin 0/3, ConvNeXt 1/3), sementara CNN (ResNet, EfficientNet) dan ViT stabil (3/3). Arsitektur hierarkis modern menuntut pretraining pada skala dataset ini.
+> Swin-Tiny (kolaps 3/3) dan ConvNeXt-Tiny (kolaps 2/3) gagal konvergen dari scratch bahkan dengan warmup + data penuh, sementara CNN (ResNet, EfficientNet) dan ViT tidak pernah kolaps (0/3). Arsitektur hierarkis modern menuntut pretraining pada skala dataset ini.

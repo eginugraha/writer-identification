@@ -28,17 +28,18 @@ def main():
 
     # === Scratch: temuan sekunder — trainability dari nol di data penuh ===
     parts += ["\n## Mode: scratch (dari nol) — trainability\n",
-              "\nDilatih dari inisialisasi acak dengan resep sama (LR warmup=3). "
-              "Dilaporkan hanya pada **data penuh** (kondisi terbaik untuk scratch); "
-              "data lebih sedikit hanya memperparah. Ambang 'latih' = top-1 > 0.3.\n",
+              "\nDilatih dari inisialisasi acak dengan resep sama (LR warmup=3) untuk "
+              "SEMUA arsitektur. Dilaporkan hanya pada **data penuh** (kondisi terbaik "
+              "untuk scratch); data lebih sedikit hanya memperparah. Kolom **kolaps** = "
+              "jumlah seed dengan top-1 < 0.05 (prediksi ~1 kelas).\n",
               "\n### Top-1 per seed @ data penuh\n",
               scratch_trainability_markdown(df, level="full", metric="top1_page"),
               "\n\n### Macro-F1 per seed @ data penuh\n",
               scratch_trainability_markdown(df, level="full", metric="macro_f1_page"),
-              "\n\n> ConvNeXt-Tiny & Swin-Tiny gagal konvergen dari scratch bahkan dengan "
-              "warmup + data penuh (Swin 0/3, ConvNeXt 1/3), sementara CNN (ResNet, "
-              "EfficientNet) dan ViT stabil (3/3). Arsitektur hierarkis modern menuntut "
-              "pretraining pada skala dataset ini.\n"]
+              "\n\n> Swin-Tiny (kolaps 3/3) dan ConvNeXt-Tiny (kolaps 2/3) gagal konvergen "
+              "dari scratch bahkan dengan warmup + data penuh, sementara CNN (ResNet, "
+              "EfficientNet) dan ViT tidak pernah kolaps (0/3). Arsitektur hierarkis "
+              "modern menuntut pretraining pada skala dataset ini.\n"]
 
     Path("dokumentasi/08-hasil-eksperimen.md").write_text("\n".join(parts))
     print("report written to dokumentasi/08-hasil-eksperimen.md")

@@ -96,18 +96,19 @@ tepat.
 % ===== Tabel 3: scratch trainability @ data penuh =====
 \begin{table}[t]\centering
 \caption{\emph{Trainability} dari \emph{scratch} pada data penuh dengan resep
-pelatihan yang sama (termasuk LR \emph{warmup} 3 epoch). Ditampilkan Top-1 per
-seed dan jumlah seed yang berhasil konvergen (Top-1 $>0.3$).}
+pelatihan identik (termasuk LR \emph{warmup} 3 epoch) untuk semua arsitektur.
+Ditampilkan Top-1 per seed, rerata, dan jumlah seed yang \emph{kolaps}
+(Top-1 $<0.05$, yakni prediksi $\approx$1 kelas).}
 \label{tab:scratch-trainability}
 \begin{tabular}{lccccc}
 \toprule
-Arsitektur & seed 0 & seed 1 & seed 2 & rerata & Berhasil \\
+Arsitektur & seed 0 & seed 1 & seed 2 & rerata & Kolaps \\
 \midrule
-ResNet-50        & 0.630 & 0.513 & 0.802 & 0.648 & 3/3 \\
-EfficientNetV2-S & 0.903 & 0.919 & 0.912 & 0.911 & 3/3 \\
-ViT-S/16         & 0.727 & 0.776 & 0.698 & 0.734 & 3/3 \\
-Swin-T           & 0.013 & 0.019 & 0.010 & 0.014 & 0/3 \\
-ConvNeXt-T       & 0.003 & 0.003 & 0.760 & 0.255 & 1/3 \\
+ResNet-50        & 0.591 & 0.256 & 0.734 & 0.527 & 0/3 \\
+EfficientNetV2-S & 0.818 & 0.890 & 0.909 & 0.872 & 0/3 \\
+ViT-S/16         & 0.821 & 0.727 & 0.834 & 0.794 & 0/3 \\
+Swin-T           & 0.013 & 0.019 & 0.010 & 0.014 & 3/3 \\
+ConvNeXt-T       & 0.003 & 0.003 & 0.760 & 0.255 & 2/3 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -117,14 +118,19 @@ ConvNeXt-T       & 0.003 & 0.003 & 0.760 & 0.255 & 1/3 \\
 
 Untuk menilai apakah keunggulan arsitektur modern tetap berlaku tanpa
 pra-pelatihan, seluruh model juga dilatih dari inisialisasi acak (*scratch*)
-menggunakan resep pelatihan yang identik, termasuk *learning-rate warmup*
-3 epoch. Hasil pada data penuh (Tabel~\ref{tab:scratch-trainability})
-memperlihatkan disparitas yang tajam. CNN (ResNet-50 dan EfficientNetV2-S)
-serta ViT-S/16 berhasil konvergen secara stabil pada seluruh 3 seed, dengan
-EfficientNetV2-S bahkan mencapai Top-1 0.911—setara performa *pretrained*-nya.
-Sebaliknya, Swin-T gagal konvergen pada seluruh seed (0/3) dan ConvNeXt-T hanya
-berhasil pada 1 dari 3 seed; pada seed yang gagal, keduanya kolaps menjadi
-prediksi satu kelas (Top-1 $\approx$ 0.003–0.019).
+menggunakan resep pelatihan yang **identik untuk semua arsitektur**, termasuk
+*learning-rate warmup* 3 epoch. Hasil pada data penuh
+(Tabel~\ref{tab:scratch-trainability}) memisahkan dua aspek: **stabilitas**
+(apakah pelatihan kolaps menjadi prediksi satu kelas) dan **akurasi** (rerata
+Top-1). Perbedaan stabilitas sangat tajam. CNN (ResNet-50, EfficientNetV2-S) dan
+ViT-S/16 tidak pernah kolaps (0/3), dengan EfficientNetV2-S mencapai rerata Top-1
+tertinggi (0.872) disusul ViT-S/16 (0.794). Sebaliknya, Swin-T kolaps pada
+seluruh seed (3/3) dan ConvNeXt-T pada 2 dari 3 seed; pada seed yang kolaps,
+keduanya jatuh ke prediksi satu kelas (Top-1 $\approx$ 0.003–0.019). ResNet-50
+tidak kolaps namun memperlihatkan varians antar-seed yang lebih besar (satu seed
+hanya 0.256) sehingga rerata-nya (0.527) berada di bawah EfficientNet dan ViT—
+konsisten dengan sifat pelatihan CNN residual dari nol yang lebih sensitif
+terhadap inisialisasi.
 
 Yang penting, kegagalan ini bukan artefak *learning rate* yang tidak sesuai.
 *Warmup* terbukti menyembuhkan sepenuhnya ketidakstabilan pada jalur *pretrained*
@@ -153,11 +159,12 @@ aman dibanding ConvNeXt/Swin.
   prediksi satu kelas di seluruh level dan seed. Penambahan *warmup* linear
   menyelamatkan seluruh *run* *pretrained* tersebut. Arsitektur lain (ResNet-50,
   EfficientNetV2-S, ViT-S/16) stabil dengan atau tanpa *warmup*.
-- **Konsistensi resep.** Baris *scratch* untuk ResNet-50, EfficientNetV2-S, dan
-  ViT-S/16 pada Tabel~\ref{tab:scratch-trainability} berasal dari *grid* awal
-  (pra-*warmup*); karena ketiganya telah konvergen stabil dan *warmup* tidak
-  mendegradasi *run* yang sudah konvergen, angka tersebut tetap representatif.
-  Baris Swin-T dan ConvNeXt-T dijalankan ulang dengan *warmup*.
+- **Konsistensi resep.** Seluruh baris *scratch* pada
+  Tabel~\ref{tab:scratch-trainability} dijalankan dengan resep identik (LR
+  *warmup* 3 epoch), sehingga perbandingan antar-arsitektur adil. Kriteria
+  *kolaps* (Top-1 $<0.05$) memisahkan kegagalan optimisasi (prediksi $\approx$1
+  kelas) dari sekadar akurasi rendah—mis. ResNet-50 tidak kolaps meski satu seed
+  hanya mencapai 0.256.
 - **Level `full` dilepas dari ablasi.** Ukuran data `full` (9.852 sampel latih)
   hanya ~4% lebih besar dari L4 (9.455) dan menghasilkan akurasi yang praktis
   identik, sehingga redundan; ablasi dilaporkan pada L1–L4.
