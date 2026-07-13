@@ -34,7 +34,18 @@ def train_one_run(manifest, rc: RunConfig, out_dir, device, hp: dict) -> dict:
     vl = DataLoader(val_ds, batch_size=rc.batch_size, shuffle=False, num_workers=nw)
     model = build_model(rc.arch, _num_classes(manifest), pretrained=(rc.mode == "pretrained")).to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=rc.lr, weight_decay=rc.weight_decay)
-    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(1, rc.epochs))
+    # Warmup LR linear beberapa epoch lalu cosine annealing. Tanpa warmup,
+    # ConvNeXt/Swin sering divergen di epoch awal lalu kolaps ke 1 kelas.
+    warmup_epochs = min(int(hp.get("warmup_epochs", 3)), max(0, rc.epochs - 1))
+    if warmup_epochs > 0:
+        warmup = torch.optim.lr_scheduler.LinearLR(
+            opt, start_factor=0.01, total_iters=warmup_epochs)
+        cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+            opt, T_max=max(1, rc.epochs - warmup_epochs))
+        sched = torch.optim.lr_scheduler.SequentialLR(
+            opt, [warmup, cosine], milestones=[warmup_epochs])
+    else:
+        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(1, rc.epochs))
     crit = torch.nn.CrossEntropyLoss()
     use_amp = hp.get("amp", False) and device != "cpu"
     amp_device = "cuda" if device != "cpu" else "cpu"
