@@ -34,13 +34,14 @@ def pivot_markdown(df, metric: str, mode: str, exclude_levels=()) -> str:
         lines.append(f"| {a} | " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
-def scratch_trainability_markdown(df, level="full", metric="top1_page", thresh=0.3) -> str:
+def scratch_trainability_markdown(df, level="full", metric="top1_page", collapse_thresh=0.05) -> str:
     """Tabel per-seed di satu level (default data penuh) untuk mode scratch.
-    Menampilkan berapa seed yang berhasil dilatih (metric > thresh)."""
+    Memisahkan stabilitas (jumlah seed yang KOLAPS, metric < collapse_thresh =
+    prediksi ~1 kelas) dari akurasi (rerata)."""
     s = df[(df["mode"] == "scratch") & (df["level"].astype(str) == str(level))]
     archs = sorted(s["arch"].unique())
     seeds = sorted(s["seed"].unique())
-    header = "| arch | " + " | ".join(f"seed {sd}" for sd in seeds) + " | rata2 | latih |"
+    header = "| arch | " + " | ".join(f"seed {sd}" for sd in seeds) + " | rerata | kolaps |"
     sep = "|" + "---|" * (len(seeds) + 3)
     lines = [header, sep]
     for a in archs:
@@ -50,9 +51,9 @@ def scratch_trainability_markdown(df, level="full", metric="top1_page", thresh=0
             row = sub[sub.seed == sd]
             vals.append(float(row[metric].iloc[0]) if len(row) else float("nan"))
         mean = sum(vals) / len(vals) if vals else float("nan")
-        ok = sum(1 for v in vals if v > thresh)
+        n_coll = sum(1 for v in vals if v < collapse_thresh)
         cells = " | ".join(f"{v:.3f}" for v in vals)
-        lines.append(f"| {a} | {cells} | {mean:.3f} | {ok}/{len(seeds)} |")
+        lines.append(f"| {a} | {cells} | {mean:.3f} | {n_coll}/{len(seeds)} |")
     return "\n".join(lines)
 
 
