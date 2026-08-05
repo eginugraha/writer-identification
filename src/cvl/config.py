@@ -20,7 +20,7 @@ ALL_ARCHITECTURES = {
 # baris, beda ~4%) dan akurasinya setara, jadi redundan. Parser `.env` masih
 # menerima token "full" bila sewaktu-waktu perlu dijalankan lagi.
 ALL_ABLATION_LEVELS = [1, 2, 3, 4]
-ALL_SEEDS = [0, 1, 2]
+ALL_SEEDS = [0, 1, 2, 3, 4]
 ALL_MODES = ["pretrained", "scratch"]
 
 
