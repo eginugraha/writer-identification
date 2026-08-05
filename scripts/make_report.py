@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.cvl.config import add_date_args, date_suffix
 from src.cvl.report import (
     pivot_markdown, plot_accuracy_vs_n, efficiency_markdown,
     scratch_trainability_markdown,
@@ -17,36 +18,41 @@ DROP = ("full",)
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description="Bangun laporan hasil eksperimen dari results/results.csv")
+        description="Bangun laporan hasil eksperimen dari results/results*.csv")
+    add_date_args(p)
     p.add_argument(
-        "--date", nargs="?", const="auto", default=None, metavar="TAG",
-        help="sisipkan tanggal ke nama laporan DAN figure-nya, supaya run lama "
-             "tidak ketimpa. Tanpa nilai = YYYY-MM-DD hari ini; boleh diisi tag "
-             "sendiri, mis. --date 2026-08-05-rerun-warmup.")
+        "--results", default=None, metavar="PATH",
+        help="path results.csv sumber (default: mengikuti --date, "
+             "jatuh ke results/results.csv bila yang bertanggal belum ada).")
     p.add_argument(
         "--out", default=None, metavar="PATH",
         help="path laporan eksplisit (menimpa penamaan dari --date).")
     return p.parse_args()
 
 
-def resolve_suffix(date_arg) -> str:
-    """'' bila --date tidak dipakai; '-2026-08-05' atau '-<tag>' bila dipakai."""
-    if date_arg is None:
-        return ""
-    tag = datetime.now().strftime("%Y-%m-%d") if date_arg == "auto" else date_arg
-    return f"-{tag}"
+def resolve_results_csv(explicit, suffix) -> Path:
+    """CSV sumber. Dengan --date, pakai results/results<suffix>.csv bila ada;
+    kalau belum ada, mundur ke yang kanonik — tapi bilang, jangan diam-diam."""
+    if explicit:
+        return Path(explicit)
+    dated = Path(f"results/results{suffix}.csv")
+    if suffix and not dated.exists():
+        print(f"[!] {dated} tidak ada -> pakai results/results.csv")
+        return Path("results/results.csv")
+    return dated
 
 
 def main():
     args = parse_args()
-    suffix = resolve_suffix(args.date)
+    suffix = date_suffix(args.date)
+    src_csv = resolve_results_csv(args.results, suffix)
     out_md = Path(args.out) if args.out else Path(f"dokumentasi/08-hasil-eksperimen{suffix}.md")
     acc_png = f"acc_vs_n_pretrained{suffix}.png"
 
-    df = pd.read_csv("results/results.csv")
+    df = pd.read_csv(src_csv)
     fig = Path("results/figures"); fig.mkdir(parents=True, exist_ok=True)
     parts = ["# Hasil Eksperimen — Perbandingan Arsitektur Writer-ID CVL\n",
-             f"\n_Dibuat {datetime.now():%Y-%m-%d %H:%M} dari `results/results.csv` "
+             f"\n_Dibuat {datetime.now():%Y-%m-%d %H:%M} dari `{src_csv}` "
              f"({len(df)} run)._\n"]
 
     # === Pretrained: hasil utama, ablasi ukuran data L1–L4 ===

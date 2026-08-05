@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from pathlib import Path
 
 EXCLUDE_WRITERS = {"0431", "0161"}
@@ -25,6 +26,30 @@ ALL_MODES = ["pretrained", "scratch"]
 
 def project_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def date_suffix(date_arg) -> str:
+    """Sufiks penamaan output run/laporan. Dipakai bersama oleh
+    scripts/run_all.py dan scripts/make_report.py supaya nama CSV, folder
+    checkpoint, laporan, dan figure dari satu run pakai stempel yang sama.
+
+    None -> ''  (nama kanonik, perilaku lama)
+    'auto' -> '-2026-08-05'  (tanggal lokal hari ini; hormati env TZ)
+    '<tag>' -> '-<tag>'
+    """
+    if date_arg is None:
+        return ""
+    tag = datetime.now().strftime("%Y-%m-%d") if date_arg == "auto" else date_arg
+    return f"-{tag}"
+
+
+def add_date_args(parser) -> None:
+    """Flag --date/-nya seragam di semua entry-point."""
+    parser.add_argument(
+        "--date", nargs="?", const="auto", default=None, metavar="TAG",
+        help="stempel tanggal pada nama output supaya run lama tidak ketimpa. "
+             "Tanpa nilai = YYYY-MM-DD hari ini; boleh diisi tag sendiri, "
+             "mis. --date 2026-08-05-rerun-warmup.")
 
 
 def lines_root() -> Path:
