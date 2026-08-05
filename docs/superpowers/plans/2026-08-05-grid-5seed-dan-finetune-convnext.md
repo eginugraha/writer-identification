@@ -111,7 +111,7 @@ def env_metadata(device: str) -> dict:
 - [ ] **Step 4: Jalankan test, pastikan lolos**
 
 Run: `.venv/bin/pytest tests/test_env_info.py -v`
-Expected: PASS (2 test)
+Expected: PASS — semua test di berkas ini lolos
 
 - [ ] **Step 5: Tulis test yang gagal untuk kolom baru di CSV**
 
@@ -157,7 +157,7 @@ Lalu ganti pemanggilan `_append_row` (saat ini di baris 52-54) menjadi:
 - [ ] **Step 8: Jalankan test, pastikan lolos**
 
 Run: `.venv/bin/pytest tests/test_runner.py -v`
-Expected: PASS (3 test)
+Expected: PASS — semua test di berkas ini lolos
 
 - [ ] **Step 9: Naikkan katalog seed jadi 5**
 
@@ -186,7 +186,7 @@ def test_katalog_seed_lima():
 - [ ] **Step 11: Jalankan seluruh suite**
 
 Run: `.venv/bin/pytest -q`
-Expected: PASS, 30 test (26 lama + 4 baru)
+Expected: PASS — tidak ada kegagalan, dan jumlah test bertambah dari 26
 
 - [ ] **Step 12: Commit**
 
@@ -324,7 +324,7 @@ SCENARIOS: dict[str, Scenario] = {
 - [ ] **Step 4: Jalankan test, pastikan lolos**
 
 Run: `.venv/bin/pytest tests/test_scenarios.py -v`
-Expected: PASS (6 test)
+Expected: PASS — semua test di berkas ini lolos
 
 - [ ] **Step 5: Commit**
 
@@ -408,6 +408,18 @@ def test_linewindow_menghasilkan_jendela_berbeda(wide_line_image):
 def test_linewindow_eval_bentuk_benar(wide_line_image):
     t = build_transforms(train=False, geometry="linewindow")
     assert t(wide_line_image).shape == (3, 224, 224)
+
+
+def test_geometri_tidak_dikenal_ditolak(wide_line_image):
+    import pytest
+    with pytest.raises(ValueError):
+        build_transforms(train=True, geometry="entahlah")
+
+
+def test_aug_tidak_dikenal_ditolak(wide_line_image):
+    import pytest
+    with pytest.raises(ValueError):
+        build_transforms(train=True, aug="entahlah")
 ```
 
 - [ ] **Step 3: Jalankan test, pastikan gagal**
@@ -461,8 +473,14 @@ def _geometry_stage(train: bool, image_size: int, geometry: str):
     raise ValueError(f"geometry tidak dikenal: {geometry}")
 
 
-def _aug_stage(geometry: str, image_size: int):
-    """Tahap augmentasi baseline (hanya dipakai saat train=True)."""
+def _aug_stage(geometry: str, image_size: int, aug: str):
+    """Tahap augmentasi (hanya dipakai saat train=True).
+
+    Nilai "strong" ditambahkan pada task berikutnya; di sini `aug` sudah
+    divalidasi supaya nilai salah ketik tidak lolos diam-diam.
+    """
+    if aug != "baseline":
+        raise ValueError(f"aug tidak dikenal: {aug}")
     if geometry == "center":
         return [
             T.RandomAffine(degrees=3, translate=(0.02, 0.02), scale=(0.95, 1.05)),
@@ -488,7 +506,7 @@ def build_transforms(train: bool, image_size: int = IMAGE_SIZE,
     steps = [T.Grayscale(num_output_channels=3)]
     steps += _geometry_stage(train, image_size, geometry)
     if train:
-        steps += _aug_stage(geometry, image_size)
+        steps += _aug_stage(geometry, image_size, aug)
     steps += [T.ToTensor(), norm]
     return T.Compose(steps)
 
@@ -517,12 +535,12 @@ Catatan untuk pelaksana: pada `geometry="center"` + `train=True`, urutannya teta
 - [ ] **Step 5: Jalankan test, pastikan lolos**
 
 Run: `.venv/bin/pytest tests/test_dataset.py -v`
-Expected: PASS (7 test)
+Expected: PASS — semua test di berkas ini lolos
 
 - [ ] **Step 6: Jalankan seluruh suite**
 
 Run: `.venv/bin/pytest -q`
-Expected: PASS, 41 test
+Expected: PASS — tidak ada kegagalan, jumlah test bertambah
 
 - [ ] **Step 7: Commit**
 
@@ -572,12 +590,6 @@ def test_aug_strong_tidak_mengubah_geometri(wide_line_image):
     bagian baris yang terlihat — kalau tidak, ia rancu dengan FT1."""
     from src.cvl.dataset import _strip_width
     assert _strip_width(224) == 246
-
-
-def test_aug_tidak_dikenal_ditolak(wide_line_image):
-    import pytest
-    with pytest.raises(ValueError):
-        build_transforms(train=True, aug="entahlah")
 ```
 
 - [ ] **Step 2: Jalankan test, pastikan gagal**
@@ -634,14 +646,9 @@ def _aug_stage(geometry: str, image_size: int, aug: str):
     raise ValueError(f"aug tidak dikenal: {aug}")
 ```
 
-Perbarui pemanggilnya di `build_transforms`:
+Pemanggilnya di `build_transforms` sudah meneruskan `aug` sejak Task 3, jadi tidak perlu diubah.
 
-```python
-    if train:
-        steps += _aug_stage(geometry, image_size, aug)
-```
-
-Dan sisipkan RandomErasing **setelah** `ToTensor` (ia bekerja pada tensor, bukan PIL):
+Sisipkan RandomErasing **setelah** `ToTensor` (ia bekerja pada tensor, bukan PIL):
 
 ```python
     steps += [T.ToTensor()]
@@ -650,12 +657,12 @@ Dan sisipkan RandomErasing **setelah** `ToTensor` (ia bekerja pada tensor, bukan
     steps += [norm]
 ```
 
-Catatan: `_aug_stage` harus tetap memvalidasi `aug` walaupun `train=False`, karena test memanggil `build_transforms(train=True, aug="entahlah")`. Validasi terjadi di dalam `_aug_stage` yang hanya dipanggil saat `train=True` — itu sudah cukup untuk test tersebut.
+Catatan: `raise ValueError` untuk `aug` tak dikenal sudah ada sejak Task 3 dan harus tetap dipertahankan di cabang terakhir `_aug_stage`.
 
 - [ ] **Step 4: Jalankan test, pastikan lolos**
 
 Run: `.venv/bin/pytest tests/test_dataset.py -v`
-Expected: PASS (11 test)
+Expected: PASS — semua test di berkas ini lolos
 
 - [ ] **Step 5: Verifikasi ulang bahwa jalur baseline tidak bergeser**
 
@@ -665,7 +672,7 @@ Expected: PASS
 - [ ] **Step 6: Jalankan seluruh suite**
 
 Run: `.venv/bin/pytest -q`
-Expected: PASS, 45 test
+Expected: PASS — tidak ada kegagalan, jumlah test bertambah
 
 - [ ] **Step 7: Commit**
 
@@ -811,7 +818,7 @@ class ArcFaceModel(nn.Module):
 - [ ] **Step 4: Jalankan test, pastikan lolos**
 
 Run: `.venv/bin/pytest tests/test_arcface.py -v`
-Expected: PASS (5 test)
+Expected: PASS — semua test di berkas ini lolos
 
 - [ ] **Step 5: Tulis test yang gagal untuk `build_model`**
 
@@ -905,12 +912,12 @@ def count_params(model) -> int:
 - [ ] **Step 8: Jalankan test, pastikan lolos**
 
 Run: `.venv/bin/pytest tests/test_models.py -v`
-Expected: PASS (8 test)
+Expected: PASS — semua test di berkas ini lolos
 
 - [ ] **Step 9: Jalankan seluruh suite**
 
 Run: `.venv/bin/pytest -q`
-Expected: PASS, 58 test
+Expected: PASS — tidak ada kegagalan, jumlah test bertambah
 
 - [ ] **Step 10: Commit**
 
@@ -1080,12 +1087,12 @@ Forward saat validasi tetap tanpa label (`model(x)`), sehingga margin tidak ikut
 - [ ] **Step 5: Jalankan test, pastikan lolos**
 
 Run: `.venv/bin/pytest tests/test_train_smoke.py -v`
-Expected: PASS (6 test)
+Expected: PASS — semua test di berkas ini lolos
 
 - [ ] **Step 6: Jalankan seluruh suite**
 
 Run: `.venv/bin/pytest -q`
-Expected: PASS, 63 test
+Expected: PASS — tidak ada kegagalan, jumlah test bertambah
 
 - [ ] **Step 7: Commit**
 
@@ -1134,12 +1141,24 @@ def test_eval_crops_satu_tetap_tiga_dimensi(tiny_lines):
     assert x.shape == (3, 224, 224)
 
 
-def test_jendela_evaluasi_merata_dan_berbeda(wide_line_image):
+def test_jendela_evaluasi_merata_dan_berbeda():
+    """Jendela harus benar-benar berasal dari posisi berbeda dan menutup
+    baris dari ujung ke ujung. Diuji dengan citra bergradien — pada citra
+    polos semua potongan identik sehingga uji isi tidak membuktikan apa pun."""
+    from PIL import Image
     from src.cvl.dataset import even_windows
-    wins = even_windows(wide_line_image, size=224, k=9)
+    grad = Image.new("L", (1740, 140))
+    grad.putdata([x % 256 for _ in range(140) for x in range(1740)])
+    grad = grad.convert("RGB")
+
+    wins = even_windows(grad, size=224, k=9)
     assert len(wins) == 9
     assert all(w.size == (224, 140) for w in wins)
-    assert len({w.tobytes() for w in wins}) >= 1  # crop dari posisi berbeda
+    # kesembilan jendela berbeda isinya
+    assert len({w.tobytes() for w in wins}) == 9
+    # jendela pertama mulai di kiri, terakhir berakhir di kanan
+    assert wins[0].tobytes() == grad.crop((0, 0, 224, 140)).tobytes()
+    assert wins[-1].tobytes() == grad.crop((1740 - 224, 0, 1740, 140)).tobytes()
 ```
 
 - [ ] **Step 2: Jalankan test, pastikan gagal**
@@ -1195,7 +1214,7 @@ Tambahkan `import torch` di bagian atas berkas, dan di `__init__` siapkan transf
 - [ ] **Step 4: Jalankan test, pastikan lolos**
 
 Run: `.venv/bin/pytest tests/test_dataset.py -v`
-Expected: PASS (14 test)
+Expected: PASS — semua test di berkas ini lolos
 
 - [ ] **Step 5: Tulis test yang gagal untuk evaluasi multi-crop**
 
@@ -1284,12 +1303,12 @@ Sisa fungsi (mulai dari `probs = np.concatenate(probs)`) tidak berubah.
 - [ ] **Step 8: Jalankan test, pastikan lolos**
 
 Run: `.venv/bin/pytest tests/test_evaluate_smoke.py -v`
-Expected: PASS (3 test)
+Expected: PASS — semua test di berkas ini lolos
 
 - [ ] **Step 9: Jalankan seluruh suite**
 
 Run: `.venv/bin/pytest -q`
-Expected: PASS, 70 test
+Expected: PASS — tidak ada kegagalan, jumlah test bertambah
 
 - [ ] **Step 10: Commit**
 
@@ -1417,7 +1436,7 @@ def run_scenario_grid(manifest, names, seeds, results_csv, ckpt_root, device, hp
 - [ ] **Step 4: Jalankan test, pastikan lolos**
 
 Run: `.venv/bin/pytest tests/test_run_scenarios.py -v`
-Expected: PASS (3 test)
+Expected: PASS — semua test di berkas ini lolos
 
 - [ ] **Step 5: Implementasi CLI `scripts/run_scenarios.py`**
 
@@ -1500,7 +1519,7 @@ Expected: keluar dengan pesan `skenario tidak dikenal: ['TIDAKADA']`
 - [ ] **Step 7: Jalankan seluruh suite**
 
 Run: `.venv/bin/pytest -q`
-Expected: PASS, 73 test
+Expected: PASS — tidak ada kegagalan, jumlah test bertambah
 
 - [ ] **Step 8: Commit**
 
@@ -1548,7 +1567,7 @@ Ganti `.venv/bin/pytest -q      # 26 test` menjadi `.venv/bin/pytest -q      # 7
 - [ ] **Step 4: Jalankan suite untuk memastikan angkanya benar**
 
 Run: `.venv/bin/pytest -q`
-Expected: PASS, 73 test — bila jumlahnya berbeda, pakai angka sebenarnya di Step 3.
+Expected: PASS — tidak ada kegagalan, jumlah test bertambah — bila jumlahnya berbeda, pakai angka sebenarnya di Step 3.
 
 - [ ] **Step 5: Commit**
 
