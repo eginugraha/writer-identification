@@ -7,7 +7,9 @@ from src.cvl.report import (
     scratch_trainability_markdown,
 )
 
-# `full` di-drop dari ablasi pretrained: ukuran datanya ≈ L4 (beda ~4%), redundan.
+# `full` sudah tidak ada di grid (lihat src/cvl/config.py). Filter ini dipertahankan
+# supaya results.csv lama — yang masih memuat baris Lfull — tetap terlaporkan sebagai
+# L1–L4 saja.
 DROP = ("full",)
 
 def main():
@@ -18,7 +20,7 @@ def main():
     # === Pretrained: hasil utama, ablasi ukuran data L1–L4 ===
     plot_accuracy_vs_n(df, "pretrained", fig / "acc_vs_n_pretrained.png", exclude_levels=DROP)
     parts += ["\n## Mode: pretrained (transfer learning)\n",
-              "\nHasil utama. Ablasi ukuran data latih L1–L4 (level `full` di-drop, ≈L4).\n",
+              "\nHasil utama. Ablasi ukuran data latih L1–L4.\n",
               "\n### Top-1 (halaman)\n", pivot_markdown(df, "top1_page", "pretrained", DROP),
               "\n\n### Top-5 (halaman)\n", pivot_markdown(df, "top5_page", "pretrained", DROP),
               "\n\n### Macro-F1 (halaman)\n", pivot_markdown(df, "macro_f1_page", "pretrained", DROP),
@@ -29,15 +31,15 @@ def main():
     # === Scratch: temuan sekunder — trainability dari nol di data penuh ===
     parts += ["\n## Mode: scratch (dari nol) — trainability\n",
               "\nDilatih dari inisialisasi acak dengan resep sama (LR warmup=3) untuk "
-              "SEMUA arsitektur. Dilaporkan hanya pada **data penuh** (kondisi terbaik "
-              "untuk scratch); data lebih sedikit hanya memperparah. Kolom **kolaps** = "
-              "jumlah seed dengan top-1 < 0.05 (prediksi ~1 kelas).\n",
-              "\n### Top-1 per seed @ data penuh\n",
-              scratch_trainability_markdown(df, level="full", metric="top1_page"),
-              "\n\n### Macro-F1 per seed @ data penuh\n",
-              scratch_trainability_markdown(df, level="full", metric="macro_f1_page"),
+              "SEMUA arsitektur. Dilaporkan hanya pada **L4** (data latih terbanyak, "
+              "kondisi terbaik untuk scratch); data lebih sedikit hanya memperparah. "
+              "Kolom **kolaps** = jumlah seed dengan top-1 < 0.05 (prediksi ~1 kelas).\n",
+              "\n### Top-1 per seed @ L4\n",
+              scratch_trainability_markdown(df, level=4, metric="top1_page"),
+              "\n\n### Macro-F1 per seed @ L4\n",
+              scratch_trainability_markdown(df, level=4, metric="macro_f1_page"),
               "\n\n> Swin-Tiny (kolaps 3/3) dan ConvNeXt-Tiny (kolaps 2/3) gagal konvergen "
-              "dari scratch bahkan dengan warmup + data penuh, sementara CNN (ResNet, "
+              "dari scratch bahkan dengan warmup + data L4, sementara CNN (ResNet, "
               "EfficientNet) dan ViT tidak pernah kolaps (0/3). Arsitektur hierarkis "
               "modern menuntut pretraining pada skala dataset ini.\n"]
 

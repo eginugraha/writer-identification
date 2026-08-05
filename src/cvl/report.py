@@ -34,8 +34,9 @@ def pivot_markdown(df, metric: str, mode: str, exclude_levels=()) -> str:
         lines.append(f"| {a} | " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
-def scratch_trainability_markdown(df, level="full", metric="top1_page", collapse_thresh=0.05) -> str:
-    """Tabel per-seed di satu level (default data penuh) untuk mode scratch.
+def scratch_trainability_markdown(df, level=4, metric="top1_page", collapse_thresh=0.05) -> str:
+    """Tabel per-seed di satu level (default L4 = data latih terbanyak) untuk
+    mode scratch.
     Memisahkan stabilitas (jumlah seed yang KOLAPS, metric < collapse_thresh =
     prediksi ~1 kelas) dari akurasi (rerata)."""
     s = df[(df["mode"] == "scratch") & (df["level"].astype(str) == str(level))]

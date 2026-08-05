@@ -1,5 +1,5 @@
 """Grafik tambahan untuk skripsi: bar chart leaderboard (pretrained) dan
-bar chart trainability scratch @ data penuh. Output ke results/figures/."""
+bar chart trainability scratch @ L4. Output ke results/figures/."""
 import sys
 from pathlib import Path
 import matplotlib
@@ -31,7 +31,7 @@ def leaderboard_pretrained(df, out_png):
 
 
 def scratch_trainability_bar(df, out_png, collapse_thresh=0.05):
-    s = df[(df["mode"] == "scratch") & (df["level"].astype(str) == "full")]
+    s = df[(df["mode"] == "scratch") & (df["level"].astype(str) == "4")]
     order = ["efficientnetv2_s", "vit_small", "resnet50", "convnext_tiny", "swin_tiny"]
     means, labels, colors = [], [], []
     for a in order:
@@ -47,7 +47,7 @@ def scratch_trainability_bar(df, out_png, collapse_thresh=0.05):
         plt.text(b.get_x() + b.get_width() / 2, m + 0.01, f"{m:.3f}",
                  ha="center", fontsize=9)
     plt.ylim(0, 1.0)
-    plt.ylabel("Rerata Top-1 (halaman) @ data penuh")
+    plt.ylabel("Rerata Top-1 (halaman) @ L4")
     plt.title("Trainability dari scratch — hijau: tak kolaps, merah: ada kolaps")
     plt.grid(axis="y", alpha=0.3)
     plt.tight_layout(); plt.savefig(out_png, dpi=150); plt.close()
