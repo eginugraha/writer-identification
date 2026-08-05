@@ -180,3 +180,37 @@ def test_aug_strong_tidak_mengubah_geometri(wide_line_image):
     bagian baris yang terlihat — kalau tidak, ia rancu dengan FT1."""
     from src.cvl.dataset import _strip_width
     assert _strip_width(224) == 246
+
+
+def test_aug_strong_center_menyematkan_strip_sebelum_crop():
+    """Penjaga anti-rancu: pastikan _aug_stage("center", 224, "strong")
+    benar-benar memasang CenterCrop 224x246 SEBELUM RandomResizedCrop,
+    bukan cuma bahwa _strip_width() menghitung 246 dengan benar (itu
+    hanya aritmetika berdiri sendiri, tidak membuktikan apa pun tentang
+    daftar tahap yang sesungguhnya dipakai). Kalau CenterCrop ini hilang
+    atau tertukar urutan dengan RandomResizedCrop, sumbu aug jadi ikut
+    memperluas cakupan baris dan rancu dengan sumbu geometry (FT1)."""
+    from src.cvl.dataset import _aug_stage
+
+    steps = _aug_stage("center", 224, "strong")
+    center_crop_idx = [i for i, s in enumerate(steps) if isinstance(s, T.CenterCrop)]
+    resized_crop_idx = [i for i, s in enumerate(steps) if isinstance(s, T.RandomResizedCrop)]
+    assert len(center_crop_idx) == 1, "harus ada tepat satu CenterCrop penyemat strip"
+    assert len(resized_crop_idx) == 1, "harus ada tepat satu RandomResizedCrop"
+    assert steps[center_crop_idx[0]].size == (224, 246)
+    assert center_crop_idx[0] < resized_crop_idx[0], (
+        "CenterCrop harus dipasang SEBELUM RandomResizedCrop, kalau tidak "
+        "strip tengah tidak benar-benar menyemat wilayah yang terlihat"
+    )
+
+
+def test_aug_strong_linewindow_tidak_memakai_centercrop_tambahan():
+    """Mirror dari test di atas: pada geometry="linewindow" jendela sudah
+    224x224 (hasil ResizeHeight + RandomCrop di _geometry_stage), jadi
+    _aug_stage TIDAK boleh menambahkan CenterCrop lagi — itu akan
+    mempersempit cakupan, bukan menyematkannya, dan mengubah wilayah yang
+    terlihat model secara tak sengaja."""
+    from src.cvl.dataset import _aug_stage
+
+    steps = _aug_stage("linewindow", 224, "strong")
+    assert not any(isinstance(s, T.CenterCrop) for s in steps)
