@@ -16,3 +16,8 @@ def tiny_lines(tmp_path):
             for ln in range(4):  # 4 baris/halaman
                 _make_line(lines / writer, writer, p, ln)
     return tmp_path
+
+@pytest.fixture
+def wide_line_image():
+    """Citra baris dengan rasio ~12:1, meniru dimensi asli CVL (1739x137)."""
+    return Image.new("RGB", (1740, 140), (200, 200, 200))
