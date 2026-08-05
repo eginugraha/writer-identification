@@ -39,25 +39,46 @@ def _geometry_stage(train: bool, image_size: int, geometry: str):
     raise ValueError(f"geometry tidak dikenal: {geometry}")
 
 
-def _aug_stage(geometry: str, image_size: int, aug: str):
-    """Tahap augmentasi (hanya dipakai saat train=True).
+def _strip_width(image_size: int) -> int:
+    """Lebar strip tengah yang dilihat pipeline baseline.
 
-    Nilai "strong" ditambahkan pada task berikutnya; di sini `aug` sudah
-    divalidasi supaya nilai salah ketik tidak lolos diam-diam.
+    Torchvision jatuh ke fallback `w = round(h * max(ratio))` ketika batasan
+    RandomResizedCrop tidak terpenuhi. Dengan ratio maks 1.1 dan tinggi 224,
+    lebarnya 246 — angka ini yang dipakai AUG supaya cakupan barisnya sama
+    persis dengan baseline.
     """
-    if aug != "baseline":
-        raise ValueError(f"aug tidak dikenal: {aug}")
-    if geometry == "center":
+    return int(round(image_size * 1.1))
+
+
+def _aug_stage(geometry: str, image_size: int, aug: str):
+    """Tahap augmentasi (hanya dipakai saat train=True)."""
+    if aug == "baseline":
+        if geometry == "center":
+            return [
+                T.RandomAffine(degrees=3, translate=(0.02, 0.02), scale=(0.95, 1.05)),
+                T.RandomResizedCrop(image_size, scale=(0.8, 1.0), ratio=(0.9, 1.1)),
+                T.ColorJitter(brightness=0.2, contrast=0.2),
+            ]
+        # linewindow: jendela sudah 224x224, affine + jitter saja
         return [
             T.RandomAffine(degrees=3, translate=(0.02, 0.02), scale=(0.95, 1.05)),
-            T.RandomResizedCrop(image_size, scale=(0.8, 1.0), ratio=(0.9, 1.1)),
             T.ColorJitter(brightness=0.2, contrast=0.2),
         ]
-    # linewindow: jendela sudah 224x224, affine + jitter saja
-    return [
-        T.RandomAffine(degrees=3, translate=(0.02, 0.02), scale=(0.95, 1.05)),
-        T.ColorJitter(brightness=0.2, contrast=0.2),
-    ]
+    if aug == "strong":
+        steps = [
+            T.RandomAffine(degrees=6, translate=(0.05, 0.05), scale=(0.9, 1.1), shear=5),
+        ]
+        if geometry == "center":
+            # Potong dulu ke strip tengah 224x246 — wilayah yang sama dengan
+            # baseline — supaya RandomResizedCrop punya ruang untuk memenuhi
+            # batasan rasio dan benar-benar mengacak.
+            steps.append(T.CenterCrop((image_size, _strip_width(image_size))))
+        steps += [
+            T.RandomResizedCrop(image_size, scale=(0.6, 1.0), ratio=(0.9, 1.1)),
+            T.ColorJitter(brightness=0.4, contrast=0.4),
+        ]
+        return steps
+    raise ValueError(f"aug tidak dikenal: {aug}")
 
 
 def build_transforms(train: bool, image_size: int = IMAGE_SIZE,
@@ -70,14 +91,19 @@ def build_transforms(train: bool, image_size: int = IMAGE_SIZE,
     """
     # Validasi tanpa syarat: nilai `aug` salah ketik harus ditolak baik saat
     # train maupun eval, bukan hanya saat _aug_stage benar-benar dipanggil.
-    if aug != "baseline":
+    if aug not in ("baseline", "strong"):
         raise ValueError(f"aug tidak dikenal: {aug}")
     norm = T.Normalize(IMAGENET_MEAN, IMAGENET_STD)
     steps = [T.Grayscale(num_output_channels=3)]
     steps += _geometry_stage(train, image_size, geometry)
     if train:
         steps += _aug_stage(geometry, image_size, aug)
-    steps += [T.ToTensor(), norm]
+    steps += [T.ToTensor()]
+    if train and aug == "strong":
+        # RandomErasing bekerja pada tensor, bukan PIL, jadi harus setelah
+        # ToTensor.
+        steps.append(T.RandomErasing(p=0.25))
+    steps += [norm]
     return T.Compose(steps)
 
 

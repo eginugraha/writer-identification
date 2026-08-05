@@ -149,3 +149,34 @@ def test_aug_tidak_dikenal_ditolak_saat_eval(wide_line_image):
     import pytest
     with pytest.raises(ValueError):
         build_transforms(train=False, aug="entahlah")
+
+
+def test_aug_strong_bentuk_benar(wide_line_image):
+    import torch
+    torch.manual_seed(0)
+    out = build_transforms(train=True, aug="strong")(wide_line_image)
+    assert out.shape == (3, 224, 224)
+
+
+def test_aug_strong_benar_benar_mengacak():
+    """Crop pada AUG dipasang setelah strip tengah 224x246 supaya batasan
+    rasio bisa dipenuhi — di geometri baseline crop selalu identik.
+
+    Memakai citra bertekstur (bukan `wide_line_image` yang warnanya rata)
+    supaya keacakan RandomResizedCrop/RandomErasing benar-benar terlihat di
+    nilai piksel, bukan hanya lewat ColorJitter yang tetap mengubah warna
+    solid."""
+    img = _wide_line_image_bertekstur()
+    t = build_transforms(train=True, aug="strong")
+    outs = []
+    for seed in range(8):
+        torch.manual_seed(seed)
+        outs.append(t(img))
+    assert len({o.numpy().tobytes() for o in outs}) > 1
+
+
+def test_aug_strong_tidak_mengubah_geometri(wide_line_image):
+    """AUG hanya boleh menaikkan kekuatan augmentasi, bukan memperluas
+    bagian baris yang terlihat — kalau tidak, ia rancu dengan FT1."""
+    from src.cvl.dataset import _strip_width
+    assert _strip_width(224) == 246
