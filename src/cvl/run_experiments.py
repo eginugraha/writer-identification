@@ -2,6 +2,7 @@ from pathlib import Path
 import pandas as pd
 from .train import RunConfig, train_one_run
 from .evaluate import evaluate_checkpoint
+from .env_info import env_metadata
 
 # Override LR per (arch, mode). ConvNeXt-Tiny divergen saat fine-tune pada LR
 # bersama 3e-4 (kolaps ke prediksi 1 kelas, top1 ~0.003); arsitektur lain stabil.
@@ -51,5 +52,5 @@ def run_grid(manifest_by_seed_level, archs, levels, modes, seeds,
                                              batch_size=hp["batch_size"])
                     _append_row(results_csv, {"run_id": rid, "arch": arch,
                         "level": ("full" if level is None else level), "mode": mode,
-                        "seed": seed, **tr, **ev})
+                        "seed": seed, **tr, **ev, **env_metadata(device)})
                     print(f"done {rid}: top1={ev['top1_page']:.3f} map={ev['map_line']:.3f}")
