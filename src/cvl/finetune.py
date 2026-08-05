@@ -8,7 +8,8 @@ Ditulis agar cocok dengan pipeline eginugraha/writer-identification:
   - Scheduler: LinearLR warmup (3 ep) -> CosineAnnealingLR  (TIDAK perlu diubah)
   - Loss: CrossEntropyLoss  (S4 menambah label_smoothing=0.1)
 
-Cara pakai: taruh file ini di  src/cvl/finetune.py  lalu ikuti PATCH di bawah.
+Cara pakai: file ini sudah berada di  src/cvl/finetune.py  — tinggal ikuti PATCH
+di bawah (belum diterapkan ke train.py).
 
 Strategi:
   S0  baseline          : fine-tune penuh, LR seragam (kode asli, tanpa perubahan)
