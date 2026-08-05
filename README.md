@@ -87,6 +87,18 @@ python scripts/make_report.py
 
 Menghasilkan `dokumentasi/08-hasil-eksperimen.md` (tabel Top-1, Top-5, macro-F1, mAP, dan efisiensi per arsitektur × level, untuk mode pretrained & scratch) + grafik `results/figures/acc_vs_n_*.png` (kurva akurasi-vs-N — visual "ViT data-hungry").
 
+**Arsipkan laporan per tanggal** (biar hasil run sebelumnya tidak ketimpa):
+
+```bash
+python scripts/make_report.py --date                     # 08-hasil-eksperimen-2026-08-05.md
+python scripts/make_report.py --date rerun-warmup        # 08-hasil-eksperimen-rerun-warmup.md
+python scripts/make_report.py --out /path/laporan.md     # path bebas
+```
+
+`--date` menstempel **laporan dan figure-nya sekaligus** (`acc_vs_n_pretrained-2026-08-05.png`), jadi laporan lama tetap menunjuk grafik yang benar. Tanpa flag, output tetap nama kanonik seperti biasa — dokumen lain (`09-pembahasan-hasil.md`, `11-alur-kode-training.md`) merujuk nama itu.
+
+> Di RunPod jam sistem UTC. Kalau mau tanggal WIB: `TZ=Asia/Jakarta python scripts/make_report.py --date`.
+
 ---
 
 ## Verifikasi lokal (tanpa GPU / dataset)
