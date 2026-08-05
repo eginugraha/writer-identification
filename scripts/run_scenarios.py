@@ -6,8 +6,7 @@ import torch
 import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.cvl.config import SEEDS, PRETRAINED_EPOCHS, BATCH_SIZE, add_date_args, date_suffix
-from src.cvl.run_experiments import LR_OVERRIDES
-from src.cvl.run_scenarios import run_scenario_grid
+from src.cvl.run_scenarios import run_scenario_grid, hp_skenario, cek_manifest
 from src.cvl.scenarios import SCENARIOS
 
 ARCH = "convnext_tiny"
@@ -42,16 +41,11 @@ def main():
     if BATCH_SIZE is not None:
         hp["batch_size"] = BATCH_SIZE
     # samakan dengan grid utama: ConvNeXt pretrained memakai LR 1e-4
-    hp["lr"] = LR_OVERRIDES.get((ARCH, "pretrained"), hp["lr"])
+    hp = hp_skenario(hp, ARCH)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     man_dir = Path("results/manifests")
-    # gagal cepat kalau ada manifest seed yang belum dibangun, sebelum
-    # pekerjaan panjang dimulai
-    hilang = [s for s in SEEDS if not (man_dir / f"seed{s}_L{LEVEL}.parquet").exists()]
-    if hilang:
-        raise SystemExit(f"manifest belum ada untuk seed {hilang} — jalankan "
-                         f"scripts/prep_manifests.py dulu")
+    cek_manifest(man_dir, SEEDS, LEVEL)
     print(f"skenario: {names} | seeds={SEEDS} | arch={ARCH} L{LEVEL} | device={device}")
     print(f"output: {results_csv} | ckpt: {ckpt_root}")
 

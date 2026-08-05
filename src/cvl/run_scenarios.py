@@ -7,13 +7,36 @@ results-pretrained.csv karena konfigurasinya identik dengan grid utama.
 from pathlib import Path
 from .env_info import env_metadata
 from .evaluate import evaluate_checkpoint
-from .run_experiments import already_done, _append_row
+from .run_experiments import already_done, _append_row, LR_OVERRIDES
 from .scenarios import SCENARIOS
 from .train import RunConfig, train_one_run
 
 
 def scenario_run_id(name: str, seed: int) -> str:
     return f"{name}_s{seed}"
+
+
+def hp_skenario(hp: dict, arch: str = "convnext_tiny") -> dict:
+    """Terapkan override LR yang sama dengan grid utama.
+
+    Grid utama melatih ConvNeXt pretrained pada 1e-4, bukan nilai default
+    configs/default.yaml, karena divergen di LR yang lebih tinggi. Baseline
+    FT0 disalin dari grid itu, jadi skenario wajib memakai LR yang sama —
+    kalau tidak, seluruh perbandingan Studi 2 batal.
+    """
+    hp = dict(hp)
+    hp["lr"] = LR_OVERRIDES.get((arch, "pretrained"), hp["lr"])
+    return hp
+
+
+def cek_manifest(man_dir, seeds, level: int = 1) -> None:
+    """Gagal cepat kalau ada manifest seed yang belum dibangun, sebelum
+    pekerjaan latih yang lama dimulai."""
+    man_dir = Path(man_dir)
+    hilang = [s for s in seeds if not (man_dir / f"seed{s}_L{level}.parquet").exists()]
+    if hilang:
+        raise SystemExit(f"manifest belum ada untuk seed {hilang} — jalankan "
+                         f"scripts/prep_manifests.py dulu")
 
 
 def run_scenario_grid(manifest, names, seeds, results_csv, ckpt_root, device, hp,
