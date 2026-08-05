@@ -17,16 +17,16 @@ Enam skenario Studi 2 — masing-masing mengubah **satu** mekanisme saja: `FT0` 
 
 Hasil dipisah jadi tiga berkas: `results-scratch.csv`, `results-pretrained.csv`, `results-finetune.csv`.
 
-> **Status implementasi.** Studi 1 butuh dua perubahan kecil (`ALL_SEEDS` jadi 5 seed, kolom `gpu_name` di CSV) yang **belum diterapkan**. Studi 2 butuh `src/cvl/scenarios.py` dan `scripts/run_scenarios.py` yang **belum dibuat**. Lihat §5 spec.
-
 ## Struktur
 
 ```
-src/cvl/          # pipeline: data_prep, dataset, models, metrics, train, evaluate,
-                  #           run_experiments, finetune, report
-scripts/          # entry-point: prep_manifests.py, run_all.py, make_report.py
+src/cvl/          # pipeline: data_prep, dataset, models, arcface, metrics, train,
+                  #           evaluate, run_experiments, run_scenarios, scenarios,
+                  #           finetune, env_info, report
+scripts/          # entry-point: prep_manifests.py, run_all.py, run_scenarios.py,
+                  #              make_report.py, make_figures.py, progress.py
 configs/          # default.yaml (hyperparameter)
-tests/            # pytest, 26 test, jalan di CPU tanpa dataset
+tests/            # pytest, 83 test, jalan di CPU tanpa dataset
 cvl-database-1-1/ # DATASET — tidak di-commit, taruh manual
 results/          # manifests, checkpoints, CSV, figures (dibuat otomatis)
 ```
@@ -142,7 +142,7 @@ Tiga aturan yang mempengaruhi cara angka dibaca — rinciannya di §6 spec.
 ## Verifikasi lokal (tanpa GPU/dataset)
 
 ```bash
-.venv/bin/pytest -q      # 26 test
+.venv/bin/pytest -q      # 83 test
 ```
 
 ## Konfigurasi
