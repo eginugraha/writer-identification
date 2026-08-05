@@ -68,6 +68,10 @@ def build_transforms(train: bool, image_size: int = IMAGE_SIZE,
     seberapa keras citra diacak. Dua sumbu ini sengaja dipisah agar skenario
     FT1 dan AUG menguji mekanisme yang berbeda tanpa saling mencemari.
     """
+    # Validasi tanpa syarat: nilai `aug` salah ketik harus ditolak baik saat
+    # train maupun eval, bukan hanya saat _aug_stage benar-benar dipanggil.
+    if aug != "baseline":
+        raise ValueError(f"aug tidak dikenal: {aug}")
     norm = T.Normalize(IMAGENET_MEAN, IMAGENET_STD)
     steps = [T.Grayscale(num_output_channels=3)]
     steps += _geometry_stage(train, image_size, geometry)
