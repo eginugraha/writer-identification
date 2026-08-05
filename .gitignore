@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
 .venv/
-results/checkpoints/
+results/checkpoints*/
 .pytest_cache/
 .env
 cvl-database-1-1/

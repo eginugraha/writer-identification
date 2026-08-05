@@ -75,6 +75,23 @@ python scripts/run_all.py
 - Output: `results/results.csv` (1 baris/run: Top-1/Top-5/macro-F1 halaman, mAP & Top-1 retrieval, n_params, throughput, waktu latih), checkpoint terbaik di `results/checkpoints/<run_id>/best.pt`.
 - Pantau progres: tiap run mencetak `done <run_id>: top1=... map=...`.
 
+**Training ulang tanpa menimpa hasil lama** — stempel tanggal pada CSV *dan* folder checkpoint:
+
+```bash
+python scripts/run_all.py --date                  # results/results-2026-08-05.csv + results/checkpoints-2026-08-05/
+python scripts/run_all.py --date rerun-warmup     # results/results-rerun-warmup.csv
+python scripts/run_all.py --results path/x.csv --ckpt-root path/ckpt   # path bebas
+```
+
+> ⚠️ Resume bekerja **per file CSV**. CSV bertanggal yang masih kosong = tidak ada run yang di-skip, jadi seluruh grid dilatih ulang dari nol (≈34 GPU-jam untuk 150 run). Kalau maksudnya cuma melanjutkan run yang belum selesai, jalankan **tanpa** `--date`. Kalau pod putus di tengah run bertanggal, ulangi perintah `--date` yang **sama** — resume-nya jalan terhadap CSV itu.
+
+Lalu bangun laporannya dari CSV yang sama:
+
+```bash
+python scripts/make_report.py --date              # baca results-2026-08-05.csv, tulis 08-hasil-eksperimen-2026-08-05.md
+python scripts/make_report.py --results results/results-rerun-warmup.csv --date rerun-warmup
+```
+
 **Menghemat jam GPU / smoke test** (opsional) — atur lewat file `.env` di root repo, **tanpa** ngedit kode (lihat [Konfigurasi lewat `.env`](#konfigurasi-lewat-env)). Mis. `CVL_MODES=pretrained` melewati semua from-scratch (120 → 60 run).
 
 Run **from-scratch + data penuh** yang paling lama; pretrained + N kecil sangat cepat.
@@ -92,10 +109,11 @@ Menghasilkan `dokumentasi/08-hasil-eksperimen.md` (tabel Top-1, Top-5, macro-F1,
 ```bash
 python scripts/make_report.py --date                     # 08-hasil-eksperimen-2026-08-05.md
 python scripts/make_report.py --date rerun-warmup        # 08-hasil-eksperimen-rerun-warmup.md
+python scripts/make_report.py --results results/results-lama.csv   # pilih CSV sumber
 python scripts/make_report.py --out /path/laporan.md     # path bebas
 ```
 
-`--date` menstempel **laporan dan figure-nya sekaligus** (`acc_vs_n_pretrained-2026-08-05.png`), jadi laporan lama tetap menunjuk grafik yang benar. Tanpa flag, output tetap nama kanonik seperti biasa — dokumen lain (`09-pembahasan-hasil.md`, `11-alur-kode-training.md`) merujuk nama itu.
+`--date` menstempel **laporan dan figure-nya sekaligus** (`acc_vs_n_pretrained-2026-08-05.png`), jadi laporan lama tetap menunjuk grafik yang benar. Sumber CSV-nya juga mengikuti stempel yang sama (`results/results-2026-08-05.csv`); kalau file itu belum ada, skrip mundur ke `results/results.csv` sambil mencetak peringatan. Tanpa flag, output tetap nama kanonik seperti biasa — dokumen lain (`09-pembahasan-hasil.md`, `11-alur-kode-training.md`) merujuk nama itu.
 
 > Di RunPod jam sistem UTC. Kalau mau tanggal WIB: `TZ=Asia/Jakarta python scripts/make_report.py --date`.
 
