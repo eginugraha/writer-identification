@@ -70,3 +70,25 @@ def test_jadwal_margin_arcface():
     assert arcface_margin_at(10, 3, 0.3) == 0.3
     # tanpa warmup langsung penuh
     assert arcface_margin_at(0, 0, 0.3) == 0.3
+
+
+def test_ramp_margin_terpasang_di_loop_latih(tiny_lines, tmp_path, monkeypatch):
+    """Menguji *wiring*-nya, bukan cuma rumusnya: set_arcface_margin harus
+    dipanggil sekali per epoch dengan nilai yang menanjak.
+
+    epochs=1 pada test lain membuat warmup_epochs jatuh ke 0 (short-circuit),
+    sehingga cabang rampnya tidak pernah tereksekusi di test manapun. Test
+    ini memakai epochs=4 supaya warmup_epochs benar-benar jadi 3 dan seluruh
+    tangga margin [0.0, 0.1, 0.2, 0.3] terekam."""
+    import src.cvl.train as train_mod
+    tercatat = []
+    monkeypatch.setattr(train_mod, "set_arcface_margin",
+                        lambda model, m: tercatat.append(m))
+    m = _manifest(tiny_lines)
+    rc = RunConfig(arch="resnet50", level=2, mode="scratch", seed=0,
+                   epochs=4, lr=1e-3, batch_size=8)
+    hp = {"val_frac": 0.1, "num_workers": 0, "amp": False,
+          "early_stop_patience": 99, "warmup_epochs": 3}
+    train_one_run(m, rc, tmp_path, device="cpu", hp=hp, scenario=SCENARIOS["FT4"])
+    assert len(tercatat) == 4
+    assert [abs(a - b) < 1e-9 for a, b in zip(tercatat, [0.0, 0.1, 0.2, 0.3])] == [True] * 4
