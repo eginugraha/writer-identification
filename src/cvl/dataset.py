@@ -1,3 +1,4 @@
+import torch
 from PIL import Image
 from torch.utils.data import Dataset
 import torchvision.transforms as T
@@ -20,6 +21,20 @@ class ResizeHeight:
         w, h = img.size
         new_w = max(self.height, int(round(w * self.height / h)))
         return img.resize((new_w, self.height), Image.BILINEAR)
+
+
+def even_windows(img: Image.Image, size: int, k: int) -> list:
+    """`k` jendela selebar `size` yang tersebar merata sepanjang citra.
+
+    Dipakai saat evaluasi FT1: satu potongan tengah hanya mewakili 7,5% baris,
+    jadi prediksi dirata-ratakan atas beberapa posisi.
+    """
+    w, h = img.size
+    if w <= size:
+        return [img] * k
+    step = (w - size) / max(1, k - 1) if k > 1 else 0
+    return [img.crop((int(round(i * step)), 0, int(round(i * step)) + size, h))
+            for i in range(k)]
 
 
 def _geometry_stage(train: bool, image_size: int, geometry: str):
@@ -116,6 +131,13 @@ class LineDataset(Dataset):
         self.geometry = geometry
         self.eval_crops = eval_crops
         self.tf = build_transforms(train, geometry=geometry, aug=aug)
+        # transform untuk satu jendela yang sudah dipotong (dipakai saat eval_crops > 1)
+        self.crop_tf = T.Compose([
+            T.Grayscale(num_output_channels=3),
+            T.CenterCrop(IMAGE_SIZE),
+            T.ToTensor(),
+            T.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+        ])
 
     def __len__(self):
         return len(self.rows)
@@ -123,4 +145,9 @@ class LineDataset(Dataset):
     def __getitem__(self, i):
         r = self.rows.iloc[i]
         img = Image.open(r["path"]).convert("RGB")
-        return self.tf(img), int(r["label"])
+        label = int(r["label"])
+        if self.train or self.eval_crops <= 1:
+            return self.tf(img), label
+        base = ResizeHeight(IMAGE_SIZE)(img.convert("RGB"))
+        wins = even_windows(base, IMAGE_SIZE, self.eval_crops)
+        return torch.stack([self.crop_tf(w) for w in wins]), label

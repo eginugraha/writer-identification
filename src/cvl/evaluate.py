@@ -10,20 +10,36 @@ from .metrics import aggregate_by_group, top_k_accuracy, macro_f1, retrieval_map
 def _num_classes(manifest) -> int:
     return int(manifest["label"].max()) + 1
 
-def evaluate_checkpoint(ckpt_path, manifest, arch, device, batch_size: int = 64) -> dict:
+def evaluate_checkpoint(ckpt_path, manifest, arch, device, batch_size: int = 64,
+                        scenario=None) -> dict:
+    from .scenarios import Scenario
+    sc = scenario or Scenario()
     test = manifest[manifest.split == "test"].reset_index(drop=True)
-    model = build_model(arch, _num_classes(manifest), pretrained=False).to(device)
+    model = build_model(arch, _num_classes(manifest), pretrained=False,
+                        drop_path=sc.drop_path, head=sc.head).to(device)
     model.load_state_dict(torch.load(ckpt_path, map_location=device))
     model.eval()
-    ds = LineDataset(test, train=False)
+    ds = LineDataset(test, train=False, geometry=sc.geometry, aug=sc.aug,
+                     eval_crops=sc.eval_crops)
     dl = DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=0)
     probs, feats = [], []
     t0, n_img = time.time(), 0
     with torch.no_grad():
         for x, _ in dl:
-            x = x.to(device); n_img += len(x)
-            probs.append(torch.softmax(model(x), dim=1).cpu().numpy())
-            feats.append(forward_features(model, x).cpu().numpy())
+            x = x.to(device)
+            if x.dim() == 5:
+                # [B, K, 3, H, W] -> forward semua jendela, rata-ratakan per baris
+                b, k = x.shape[0], x.shape[1]
+                flat = x.reshape(b * k, *x.shape[2:])
+                n_img += flat.shape[0]
+                p = torch.softmax(model(flat), dim=1).reshape(b, k, -1).mean(dim=1)
+                f = forward_features(model, flat).reshape(b, k, -1).mean(dim=1)
+            else:
+                n_img += len(x)
+                p = torch.softmax(model(x), dim=1)
+                f = forward_features(model, x)
+            probs.append(p.cpu().numpy())
+            feats.append(f.cpu().numpy())
     throughput = n_img / max(1e-6, time.time() - t0)
     probs = np.concatenate(probs); feats = np.concatenate(feats)
     labels = test["label"].to_numpy()

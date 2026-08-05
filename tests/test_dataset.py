@@ -204,6 +204,47 @@ def test_aug_strong_center_menyematkan_strip_sebelum_crop():
     )
 
 
+def test_eval_crops_menghasilkan_tumpukan(tiny_lines):
+    from src.cvl.data_prep import scan_lines, filter_cohort, build_manifest
+    df = scan_lines(tiny_lines)
+    kept, _ = filter_cohort(df, min_pages=5, exclude=set())
+    m = build_manifest(kept, n_train_pages=2, seed=0)
+    test = m[m.split == "test"]
+    ds = LineDataset(test, train=False, geometry="linewindow", eval_crops=9)
+    x, y = ds[0]
+    assert x.shape == (9, 3, 224, 224) and isinstance(y, int)
+
+
+def test_eval_crops_satu_tetap_tiga_dimensi(tiny_lines):
+    from src.cvl.data_prep import scan_lines, filter_cohort, build_manifest
+    df = scan_lines(tiny_lines)
+    kept, _ = filter_cohort(df, min_pages=5, exclude=set())
+    m = build_manifest(kept, n_train_pages=2, seed=0)
+    ds = LineDataset(m[m.split == "test"], train=False, eval_crops=1)
+    x, _ = ds[0]
+    assert x.shape == (3, 224, 224)
+
+
+def test_jendela_evaluasi_merata_dan_berbeda():
+    """Jendela harus benar-benar berasal dari posisi berbeda dan menutup
+    baris dari ujung ke ujung. Diuji dengan citra bergradien — pada citra
+    polos semua potongan identik sehingga uji isi tidak membuktikan apa pun."""
+    from PIL import Image
+    from src.cvl.dataset import even_windows
+    grad = Image.new("L", (1740, 140))
+    grad.putdata([x % 256 for _ in range(140) for x in range(1740)])
+    grad = grad.convert("RGB")
+
+    wins = even_windows(grad, size=224, k=9)
+    assert len(wins) == 9
+    assert all(w.size == (224, 140) for w in wins)
+    # kesembilan jendela berbeda isinya
+    assert len({w.tobytes() for w in wins}) == 9
+    # jendela pertama mulai di kiri, terakhir berakhir di kanan
+    assert wins[0].tobytes() == grad.crop((0, 0, 224, 140)).tobytes()
+    assert wins[-1].tobytes() == grad.crop((1740 - 224, 0, 1740, 140)).tobytes()
+
+
 def test_aug_strong_linewindow_tidak_memakai_centercrop_tambahan():
     """Mirror dari test di atas: pada geometry="linewindow" jendela sudah
     224x224 (hasil ResizeHeight + RandomCrop di _geometry_stage), jadi
