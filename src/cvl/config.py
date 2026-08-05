@@ -15,7 +15,10 @@ ALL_ARCHITECTURES = {
     "vit_small": "vit_small_patch16_224",
     "swin_tiny": "swin_tiny_patch4_window7_224",
 }
-ALL_ABLATION_LEVELS = [1, 2, 3, 4, None]  # None = full
+# Level `full` (None) di-drop dari grid: ukuran datanya ≈ L4 (9.852 vs 9.455
+# baris, beda ~4%) dan akurasinya setara, jadi redundan. Parser `.env` masih
+# menerima token "full" bila sewaktu-waktu perlu dijalankan lagi.
+ALL_ABLATION_LEVELS = [1, 2, 3, 4]
 ALL_SEEDS = [0, 1, 2]
 ALL_MODES = ["pretrained", "scratch"]
 

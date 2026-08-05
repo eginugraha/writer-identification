@@ -70,12 +70,12 @@ python scripts/prep_manifests.py
 python scripts/run_all.py
 ```
 
-- Grid penuh: **5 arsitektur × 5 level × 2 mode × 3 seed = 150 run**.
+- Grid penuh: **5 arsitektur × 4 level × 2 mode × 3 seed = 120 run**. (Level `full` di-drop — ukurannya ≈ L4, lihat `src/cvl/config.py`.)
 - **Resume-able**: aman diulang kalau sesi RunPod putus — run yang sudah ada di `results/results.csv` dilewati. Cukup jalankan ulang perintah yang sama.
 - Output: `results/results.csv` (1 baris/run: Top-1/Top-5/macro-F1 halaman, mAP & Top-1 retrieval, n_params, throughput, waktu latih), checkpoint terbaik di `results/checkpoints/<run_id>/best.pt`.
 - Pantau progres: tiap run mencetak `done <run_id>: top1=... map=...`.
 
-**Menghemat jam GPU / smoke test** (opsional) — atur lewat file `.env` di root repo, **tanpa** ngedit kode (lihat [Konfigurasi lewat `.env`](#konfigurasi-lewat-env)). Mis. `CVL_MODES=pretrained` melewati semua from-scratch (150 → 75 run).
+**Menghemat jam GPU / smoke test** (opsional) — atur lewat file `.env` di root repo, **tanpa** ngedit kode (lihat [Konfigurasi lewat `.env`](#konfigurasi-lewat-env)). Mis. `CVL_MODES=pretrained` melewati semua from-scratch (120 → 60 run).
 
 Run **from-scratch + data penuh** yang paling lama; pretrained + N kecil sangat cepat.
 
@@ -114,14 +114,14 @@ cp .env.example .env
 | Variabel | Arti | Contoh | Penuh (default bila kosong) |
 |---|---|---|---|
 | `CVL_ARCHS` | subset arsitektur | `resnet50` | `resnet50,convnext_tiny,efficientnetv2_s,vit_small,swin_tiny` |
-| `CVL_LEVELS` | level ablasi (`full`=semua halaman) | `1,full` | `1,2,3,4,full` |
+| `CVL_LEVELS` | level ablasi (halaman latih/penulis) | `1,4` | `1,2,3,4` |
 | `CVL_SEEDS` | seed | `0` | `0,1,2` |
 | `CVL_MODES` | mode | `pretrained` | `pretrained,scratch` |
 | `CVL_MAX_WRITERS` | batasi jumlah penulis | `10` | semua penulis |
 | `CVL_PRETRAINED_EPOCHS` / `CVL_SCRATCH_EPOCHS` | override epoch | `2` | dari `default.yaml` |
 | `CVL_BATCH_SIZE` | override batch size | `32` | dari `default.yaml` |
 
-Aturannya: **baris yang diisi = subset; dikosongkan/dihapus = pakai nilai penuh.** Hapus `.env` (atau kosongkan semua) → otomatis kembali ke grid penuh 150 run.
+Aturannya: **baris yang diisi = subset; dikosongkan/dihapus = pakai nilai penuh.** Hapus `.env` (atau kosongkan semua) → otomatis kembali ke grid penuh 120 run.
 
 > `CVL_MAX_WRITERS` memengaruhi manifest, jadi ubah nilainya lalu **jalankan ulang `prep_manifests.py`** sebelum `run_all.py`.
 >
