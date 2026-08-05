@@ -361,9 +361,10 @@ def wide_line_image():
 
 - [ ] **Step 2: Tulis test yang gagal**
 
-Tambahkan ke `tests/test_dataset.py`:
+Tambahkan ke `tests/test_dataset.py` (berkas ini belum mengimpor `pytest`; tambahkan `import pytest` di bagian atas karena test di bawah memakai `parametrize`):
 
 ```python
+import pytest
 from src.cvl.dataset import ResizeHeight
 
 
@@ -380,15 +381,50 @@ def test_resize_height_tidak_pernah_lebih_sempit_dari_tinggi():
     assert out.size[0] >= 224 and out.size[1] == 224
 
 
-def test_geometri_center_identik_dengan_perilaku_lama(wide_line_image):
-    """Penjaga utama: FT0 harus sama persis dengan pipeline sebelum perubahan."""
+def _pipeline_pra_refactor(train: bool, image_size: int = 224):
+    """Salinan literal build_transforms sebelum refactor Task 3.
+
+    Sengaja diduplikasi di dalam test: gunanya justru sebagai pembanding
+    independen, supaya kesalahan di _geometry_stage/_aug_stage tidak ikut
+    tercermin di sisi acuan.
+    """
+    import torchvision.transforms as T
+    from src.cvl.config import IMAGENET_MEAN, IMAGENET_STD
+    norm = T.Normalize(IMAGENET_MEAN, IMAGENET_STD)
+    if train:
+        return T.Compose([
+            T.Grayscale(num_output_channels=3),
+            T.Resize(image_size),
+            T.RandomAffine(degrees=3, translate=(0.02, 0.02), scale=(0.95, 1.05)),
+            T.RandomResizedCrop(image_size, scale=(0.8, 1.0), ratio=(0.9, 1.1)),
+            T.ColorJitter(brightness=0.2, contrast=0.2),
+            T.ToTensor(), norm,
+        ])
+    return T.Compose([
+        T.Grayscale(num_output_channels=3),
+        T.Resize(image_size),
+        T.CenterCrop(image_size),
+        T.ToTensor(), norm,
+    ])
+
+
+@pytest.mark.parametrize("train", [True, False])
+def test_geometri_center_identik_dengan_perilaku_lama(wide_line_image, train):
+    """Penjaga utama: FT0 harus sama persis dengan pipeline sebelum refactor.
+
+    Dibandingkan terhadap salinan literal di atas, bukan terhadap
+    build_transforms itu sendiri — kalau keduanya memanggil implementasi yang
+    sama, kesalahan di dalamnya akan tercermin di kedua sisi dan test lolos
+    padahal pipeline sudah bergeser. Jalur train=True wajib ikut diuji karena
+    di situlah RandomAffine/RandomResizedCrop/ColorJitter berada.
+    """
     import torch
     torch.manual_seed(0)
-    a = build_transforms(train=False)(wide_line_image)
+    acuan = _pipeline_pra_refactor(train)(wide_line_image)
     torch.manual_seed(0)
-    b = build_transforms(train=False, geometry="center", aug="baseline")(wide_line_image)
-    assert torch.equal(a, b)
-    assert a.shape == (3, 224, 224)
+    baru = build_transforms(train=train, geometry="center", aug="baseline")(wide_line_image)
+    assert torch.equal(acuan, baru)
+    assert baru.shape == (3, 224, 224)
 
 
 def test_linewindow_menghasilkan_jendela_berbeda(wide_line_image):
@@ -1585,5 +1621,7 @@ git commit -m "docs: drop the implementation-status caveat now that both groups 
 **Jumlah test yang tercantum di tiap task bersifat kumulatif dan merupakan perkiraan.** Bila angkanya meleset, yang penting adalah tidak ada test yang gagal dan jumlahnya bertambah, bukan cocok persis.
 
 **Penjaga terpenting di seluruh rencana ini** adalah `test_geometri_center_identik_dengan_perilaku_lama` (Task 3, Step 2). Kalau test itu gagal, `FT0` tidak lagi sah disalin dari `results-pretrained.csv` dan seluruh Studi 2 kehilangan baseline-nya. Jangan longgarkan test itu untuk membuat task lain lolos.
+
+Test itu wajib membandingkan terhadap `_pipeline_pra_refactor` — salinan literal pipeline lama — bukan terhadap `build_transforms` dengan argumen berbeda. Membandingkan implementasi dengan dirinya sendiri hanya menguji bahwa argumen default setara dengan argumen eksplisit; kesalahan di dalam `_geometry_stage` akan tercermin di kedua sisi dan lolos. Jalur `train=True` wajib ikut diuji: di situlah `RandomAffine`, `RandomResizedCrop`, dan `ColorJitter` berada, dan justru itu yang berisiko bergeser.
 
 **§6 spec (protokol statistik) sengaja tidak punya task di sini.** Spec §5.2 menyatakan `src/cvl/report.py` tidak disentuh, jadi aturan kolaps, uji-t berpasangan, dan interval kepercayaan dikerjakan manual saat menulis bab hasil — bukan dibangun sebagai kode. Konsekuensinya `make_report.py` akan tetap menghitung rata-rata gabungan yang mencampur run kolaps dan run sehat. **Angka mode scratch dari laporan otomatis tidak boleh langsung dikutip ke skripsi**; pisahkan kolaps dulu sesuai aturan di §6. Kalau nanti Anda ingin ini otomatis, itu perubahan spec tersendiri dan rencana tersendiri.
