@@ -1,0 +1,61 @@
+import dataclasses
+import pytest
+from src.cvl.scenarios import Scenario, SCENARIOS
+
+
+def test_default_scenario_adalah_perilaku_sekarang():
+    s = Scenario()
+    assert s.geometry == "center"
+    assert s.aug == "baseline"
+    assert s.drop_path == 0.0
+    assert s.label_smoothing == 0.0
+    assert s.freeze_strategy is None
+    assert s.head == "linear"
+    assert s.eval_crops == 1
+
+
+def test_scenario_beku():
+    s = Scenario()
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        s.aug = "strong"
+
+
+def test_registry_lengkap():
+    assert set(SCENARIOS) == {"FT0", "FT1", "FT2", "FT3", "FT4", "AUG"}
+    assert SCENARIOS["FT0"] == Scenario()
+
+
+def test_tiap_skenario_mengubah_satu_mekanisme():
+    """FT1-FT4 dan AUG masing-masing berbeda dari baseline pada satu sumbu.
+
+    FT1 dikecualikan dari hitungan satu-sumbu: geometry dan eval_crops adalah
+    satu mekanisme yang sama (cakupan baris), diterapkan di sisi latih dan uji.
+    """
+    base = dataclasses.asdict(Scenario())
+    diff_count = {}
+    for name, sc in SCENARIOS.items():
+        d = dataclasses.asdict(sc)
+        diff_count[name] = {k for k in d if d[k] != base[k]}
+    assert diff_count["FT0"] == set()
+    assert diff_count["FT1"] == {"geometry", "eval_crops"}
+    assert diff_count["FT2"] == {"drop_path", "label_smoothing"}
+    assert diff_count["FT3"] == {"freeze_strategy"}
+    assert diff_count["FT4"] == {"head"}
+    assert diff_count["AUG"] == {"aug"}
+
+
+def test_nilai_skenario():
+    assert SCENARIOS["FT1"].geometry == "linewindow"
+    assert SCENARIOS["FT1"].eval_crops == 9
+    assert SCENARIOS["FT2"].drop_path == 0.2
+    assert SCENARIOS["FT2"].label_smoothing == 0.1
+    assert SCENARIOS["FT3"].freeze_strategy == "S3"
+    assert SCENARIOS["FT4"].head == "arcface"
+    assert SCENARIOS["AUG"].aug == "strong"
+
+
+def test_freeze_strategy_dikenal_finetune():
+    from src.cvl.finetune import STRATEGIES
+    for sc in SCENARIOS.values():
+        if sc.freeze_strategy is not None:
+            assert sc.freeze_strategy in STRATEGIES
