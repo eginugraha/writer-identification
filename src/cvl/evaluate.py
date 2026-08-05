@@ -10,6 +10,15 @@ from .metrics import aggregate_by_group, top_k_accuracy, macro_f1, retrieval_map
 def _num_classes(manifest) -> int:
     return int(manifest["label"].max()) + 1
 
+def rata_rata_jendela(logits, b: int, k: int):
+    """Rata-ratakan prediksi K jendela per baris.
+
+    Urutannya menentukan: softmax dulu, baru dirata-rata. Merata-ratakan logit
+    lalu men-softmax menghasilkan besaran yang berbeda (ketaksamaan Jensen) dan
+    akan mengubah setiap metrik multi-crop tanpa satu test pun gagal.
+    """
+    return torch.softmax(logits, dim=1).reshape(b, k, -1).mean(dim=1)
+
 def evaluate_checkpoint(ckpt_path, manifest, arch, device, batch_size: int = 64,
                         scenario=None) -> dict:
     from .scenarios import Scenario
@@ -31,8 +40,10 @@ def evaluate_checkpoint(ckpt_path, manifest, arch, device, batch_size: int = 64,
                 # [B, K, 3, H, W] -> forward semua jendela, rata-ratakan per baris
                 b, k = x.shape[0], x.shape[1]
                 flat = x.reshape(b * k, *x.shape[2:])
-                n_img += flat.shape[0]
-                p = torch.softmax(model(flat), dim=1).reshape(b, k, -1).mean(dim=1)
+                # Satuan throughput adalah baris/detik, bukan jendela/detik --
+                # jangan diganti ke flat.shape[0], nanti angkanya menipu.
+                n_img += x.shape[0]
+                p = rata_rata_jendela(model(flat), b, k)
                 f = forward_features(model, flat).reshape(b, k, -1).mean(dim=1)
             else:
                 n_img += len(x)
