@@ -1,166 +1,173 @@
 # Writer-ID Architecture Comparison (CVL)
 
-Perbandingan 5 arsitektur deep learning (ResNet-50, ConvNeXt-Tiny, EfficientNetV2-S, ViT-Small, Swin-Tiny) untuk **klasifikasi penulis** pada dataset **CVL**, dengan **ablasi data terbatas** (halaman latih/penulis = 1,2,3,4,penuh) dan sumbu **pretrained vs from-scratch**.
+Perbandingan 5 arsitektur (ResNet-50, ConvNeXt-Tiny, EfficientNetV2-S, ViT-Small, Swin-Tiny) untuk **klasifikasi penulis** pada dataset **CVL**, dengan ablasi data terbatas (halaman latih per penulis = 1–4) dan sumbu pretrained vs from-scratch.
 
-Desain lengkap: `dokumentasi/06-desain-eksperimen-implementasi.md` · Rencana implementasi: `dokumentasi/07-rencana-implementasi.md`.
+Desain lengkap: [`docs/superpowers/specs/2026-08-05-grid-5seed-dan-finetune-convnext-design.md`](docs/superpowers/specs/2026-08-05-grid-5seed-dan-finetune-convnext-design.md)
 
----
+## Rencana eksperimen
+
+| | Studi 1 — Grid utama | Studi 2 — Fine-tuning ConvNeXt |
+|---|---|---|
+| **Isi** | 5 arsitektur × 4 level × 2 mode × 5 seed | 6 skenario × 5 seed, ConvNeXt-Tiny di L1 |
+| **Jumlah run** | 200 | 25 baru (baseline diambil dari Studi 1) |
+| **Perkiraan** | ±41 jam GPU | ±2,4 jam GPU |
+| **Dijalankan** | 2 server paralel | server 2, setelah Studi 1 selesai |
+
+Enam skenario Studi 2 — masing-masing mengubah **satu** mekanisme saja: `FT0` baseline · `FT1` geometri input · `FT2` drop_path + label smoothing · `FT3` freeze parsial + LLRD · `FT4` head ArcFace · `AUG` augmentasi kuat.
+
+Hasil dipisah jadi tiga berkas: `results-scratch.csv`, `results-pretrained.csv`, `results-finetune.csv`.
+
+> **Status implementasi.** Studi 1 butuh dua perubahan kecil (`ALL_SEEDS` jadi 5 seed, kolom `gpu_name` di CSV) yang **belum diterapkan**. Studi 2 butuh `src/cvl/scenarios.py` dan `scripts/run_scenarios.py` yang **belum dibuat**. Lihat §5 spec.
 
 ## Struktur
 
 ```
-src/cvl/          # package pipeline (data_prep, dataset, models, metrics, train, evaluate, run_experiments, report)
+src/cvl/          # pipeline: data_prep, dataset, models, metrics, train, evaluate,
+                  #           run_experiments, finetune, report
 scripts/          # entry-point: prep_manifests.py, run_all.py, make_report.py
 configs/          # default.yaml (hyperparameter)
-.env.example      # contoh subset grid / smoke test (salin ke .env)
-tests/            # pytest (26 test, jalan di CPU)
-cvl-database-1-1/ # DATASET (tidak di-commit — taruh manual)
-results/          # manifests, checkpoints, results.csv, figures (dibuat otomatis)
+tests/            # pytest, 26 test, jalan di CPU tanpa dataset
+cvl-database-1-1/ # DATASET — tidak di-commit, taruh manual
+results/          # manifests, checkpoints, CSV, figures (dibuat otomatis)
 ```
 
 ---
 
-## Menjalankan di RunPod (GPU)
+# Eksekusi di cloud
 
-### 1. Siapkan environment
+Butuh **dua pod GPU**. Server 1 mengerjakan mode scratch, server 2 mengerjakan pretrained lalu Studi 2.
 
-Sewa pod GPU (mis. RTX 4090 / A100), lalu:
+> **Kedua pod wajib memakai model GPU yang sama.** Bukan soal kecepatan — AMP aktif dan perilaku TF32/bf16 berbeda antar generasi GPU. Temuan utama mode scratch adalah klaim *stabilitas* ("kolaps x/5 seed"), dan stabilitas optimisasi paling peka terhadap presisi numerik. Kartu berbeda membuat temuan itu tidak bisa dipertahankan, dan menyamakannya tidak menambah biaya.
+
+## Langkah 1 — Siapkan server 1
 
 ```bash
-# clone repo
-git clone <url-repo-anda> thesis && cd thesis
+git clone <url-repo> thesis && cd thesis
+git checkout research
 
-# environment
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-> Butuh Python ≥3.10. Dependensi utama: torch, timm, pandas, pyarrow, scikit-learn, Pillow, pyyaml, matplotlib.
->
-> Jalankan semua perintah `python scripts/...` **dari root repo** (`thesis/`). Skrip otomatis menemukan package `src.cvl` sendiri, tapi path data (`configs/`, `results/`, `cvl-database-1-1/`) relatif terhadap direktori kerja.
+Butuh Python ≥3.10. Semua perintah `python scripts/...` dijalankan **dari root repo**.
 
-### 2. Taruh dataset
+Kunci versinya, lalu pakai file ini untuk memasang server 2:
 
-Salin folder dataset ke root repo sehingga strukturnya:
+```bash
+pip freeze > requirements.lock.txt
+```
+
+Ini penting: `requirements.txt` tidak mengunci versi apa pun, dan timm sesekali mengubah tag bobot pretrained bawaan antar rilis. Dua pod yang dibuat selang beberapa hari bisa dapat versi berbeda.
+
+## Langkah 2 — Taruh dataset
 
 ```
 thesis/cvl-database-1-1/
   trainset/lines/<writer>/<writer>-<page>-<line>.tif
   testset/lines/<writer>/<writer>-<page>-<line>.tif
-  ...
 ```
 
-Pipeline hanya membaca gambar di bawah folder bernama `lines/` (folder `words/`, `pages/`, `xml/` diabaikan).
+Hanya gambar di bawah folder `lines/` yang dibaca (`words/`, `pages/`, `xml/` diabaikan). Upload via `runpodctl`, `scp`, atau `rsync` — atau pakai Network Volume agar persist antar-sesi.
 
-Upload cepat via `runpodctl`, `scp`, atau `rsync` — atau taruh sebagai RunPod Network Volume agar persist antar-sesi.
-
-### 3. Bangun manifest split
+## Langkah 3 — Bangun manifest
 
 ```bash
 python scripts/prep_manifests.py
 ```
 
-- Men-scan CVL, membuang writer **0431 & 0161**, dan hanya memakai penulis dengan **≥5 halaman**.
-- Mencetak `n_kept_writers` dan daftar `dropped_writers` — **catat angka ini** (jumlah kelas final = n_kept_writers; masuk ke Bab metodologi).
+- Membuang writer **0431 & 0161**, memakai penulis dengan **≥5 halaman** → 308 kelas.
 - Menulis `results/manifests/seed{S}_L{tag}.parquet` untuk tiap seed × level.
+- Catat `n_kept_writers` yang tercetak — angka ini masuk bab metodologi.
 
-### 4. Jalankan grid eksperimen
+**Tiap server membangun manifest-nya sendiri.** Kolom `path` menyimpan path absolut mesin, jadi manifest tidak bisa disalin antar-server. Ini aman: split-nya terbukti identik lintas mesin untuk seed yang sama, karena `groupby("writer")` dan `sorted(pages)` menormalkan urutan sebelum RNG dipakai.
 
-```bash
-python scripts/run_all.py
-```
+## Langkah 4 — Siapkan server 2
 
-- Grid penuh: **5 arsitektur × 4 level × 2 mode × 3 seed = 120 run**. (Level `full` di-drop — ukurannya ≈ L4, lihat `src/cvl/config.py`.)
-- **Resume-able**: aman diulang kalau sesi RunPod putus — run yang sudah ada di `results/results.csv` dilewati. Cukup jalankan ulang perintah yang sama.
-- Output: `results/results.csv` (1 baris/run: Top-1/Top-5/macro-F1 halaman, mAP & Top-1 retrieval, n_params, throughput, waktu latih), checkpoint terbaik di `results/checkpoints/<run_id>/best.pt`.
-- Pantau progres: tiap run mencetak `done <run_id>: top1=... map=...`.
-
-**Training ulang tanpa menimpa hasil lama** — stempel tanggal pada CSV *dan* folder checkpoint:
+Ulangi Langkah 1–3 di pod kedua, tapi pasang dependensinya dari file terkunci:
 
 ```bash
-python scripts/run_all.py --date                  # results/results-2026-08-05.csv + results/checkpoints-2026-08-05/
-python scripts/run_all.py --date rerun-warmup     # results/results-rerun-warmup.csv
-python scripts/run_all.py --results path/x.csv --ckpt-root path/ckpt   # path bebas
+pip install -r requirements.lock.txt
 ```
 
-> ⚠️ Resume bekerja **per file CSV**. CSV bertanggal yang masih kosong = tidak ada run yang di-skip, jadi seluruh grid dilatih ulang dari nol (≈34 GPU-jam untuk 150 run). Kalau maksudnya cuma melanjutkan run yang belum selesai, jalankan **tanpa** `--date`. Kalau pod putus di tengah run bertanggal, ulangi perintah `--date` yang **sama** — resume-nya jalan terhadap CSV itu.
+## Langkah 5 — Jalankan Studi 1
 
-Lalu bangun laporannya dari CSV yang sama:
+Server 1:
 
 ```bash
-python scripts/make_report.py --date              # baca results-2026-08-05.csv, tulis 08-hasil-eksperimen-2026-08-05.md
-python scripts/make_report.py --results results/results-rerun-warmup.csv --date rerun-warmup
+CVL_MODES=scratch python scripts/run_all.py --date scratch
 ```
 
-**Menghemat jam GPU / smoke test** (opsional) — atur lewat file `.env` di root repo, **tanpa** ngedit kode (lihat [Konfigurasi lewat `.env`](#konfigurasi-lewat-env)). Mis. `CVL_MODES=pretrained` melewati semua from-scratch (120 → 60 run).
-
-Run **from-scratch + data penuh** yang paling lama; pretrained + N kecil sangat cepat.
-
-### 5. Bangun laporan
+Server 2:
 
 ```bash
-python scripts/make_report.py
+CVL_MODES=pretrained python scripts/run_all.py --date pretrained
 ```
 
-Menghasilkan `dokumentasi/08-hasil-eksperimen.md` (tabel Top-1, Top-5, macro-F1, mAP, dan efisiensi per arsitektur × level, untuk mode pretrained & scratch) + grafik `results/figures/acc_vs_n_*.png` (kurva akurasi-vs-N — visual "ViT data-hungry").
+Masing-masing menulis `results/results-<tag>.csv` dan `results/checkpoints-<tag>/`. Tiap run mencetak progres per epoch dan baris `done <run_id>: top1=... map=...` saat selesai.
 
-**Arsipkan laporan per tanggal** (biar hasil run sebelumnya tidak ketimpa):
+**Kalau pod putus:** ulangi perintah yang **sama persis**. Resume bekerja per file CSV — run yang sudah tercatat di CSV itu dilewati. Mengganti tag `--date` berarti mulai dari nol.
+
+## Langkah 6 — Jalankan Studi 2
+
+Hanya di server 2, **setelah** Studi 1 selesai:
 
 ```bash
-python scripts/make_report.py --date                     # 08-hasil-eksperimen-2026-08-05.md
-python scripts/make_report.py --date rerun-warmup        # 08-hasil-eksperimen-rerun-warmup.md
-python scripts/make_report.py --results results/results-lama.csv   # pilih CSV sumber
-python scripts/make_report.py --out /path/laporan.md     # path bebas
+python scripts/run_scenarios.py --date finetune
 ```
 
-`--date` menstempel **laporan dan figure-nya sekaligus** (`acc_vs_n_pretrained-2026-08-05.png`), jadi laporan lama tetap menunjuk grafik yang benar. Sumber CSV-nya juga mengikuti stempel yang sama (`results/results-2026-08-05.csv`); kalau file itu belum ada, skrip mundur ke `results/results.csv` sambil mencetak peringatan. Tanpa flag, output tetap nama kanonik seperti biasa — dokumen lain (`09-pembahasan-hasil.md`, `11-alur-kode-training.md`) merujuk nama itu.
+Baseline `FT0` disalin dari `results-pretrained.csv`, bukan dijalankan ulang — sah karena berada di mesin, versi library, dan manifest yang sama. Kalau Studi 2 terpaksa pindah mesin, `FT0` harus dijalankan ulang di sana.
 
-> Di RunPod jam sistem UTC. Kalau mau tanggal WIB: `TZ=Asia/Jakarta python scripts/make_report.py --date`.
+## Langkah 7 — Laporan
+
+```bash
+python scripts/make_report.py --results results/results-pretrained.csv --date pretrained
+```
+
+Menghasilkan tabel per arsitektur × level plus grafik akurasi-vs-N di `results/figures/`.
 
 ---
 
-## Verifikasi lokal (tanpa GPU / dataset)
+## Aturan pelaporan hasil
 
-Seluruh logika pipeline diuji via smoke test dengan fixture kecil di CPU:
+Tiga aturan yang mempengaruhi cara angka dibaca — rinciannya di §6 spec.
+
+**Run kolaps tidak masuk rata-rata.** Kriteria kolaps: `top1_page < 0,05` (model memprediksi ~1 kelas). Laporkan `kolaps 2/5; rata-rata run sehat 0,82 ± 0,03`, bukan rata-rata gabungan yang mencampur keduanya. Pada grid sebelumnya 31 dari 75 run scratch kolaps meski warmup aktif — ini temuan, bukan bug.
+
+**Throughput hanya dari satu server.** `throughput_img_s` diukur saat inferensi sehingga hanya bergantung pada arsitektur dan hardware, bukan pada mode. Ambil angkanya dari server 2 saja; kolom yang sama dari server 1 diabaikan. Untuk biaya latih pakai `epochs_ran` yang bebas hardware, dan sebutkan GPU-jam per server terpisah beserta nama kartunya.
+
+**Selisih di bawah 3,7 poin tidak terdeteksi.** Std antar-seed pada L1 adalah 0,0295; dengan uji-t berpasangan 5 seed, itu ambang deteksi minimumnya. Selisih 1–2 poin dilaporkan sebagai "tidak terdeteksi", bukan "sedikit lebih baik". Jangan pakai Wilcoxon signed-rank — pada n=5 nilai p terkecil yang mungkin adalah 0,0625, jadi hasilnya mustahil signifikan.
+
+---
+
+## Verifikasi lokal (tanpa GPU/dataset)
 
 ```bash
 .venv/bin/pytest -q      # 26 test
 ```
 
----
-
 ## Konfigurasi
 
-`configs/default.yaml` — batch size, jumlah epoch (pretrained/scratch), learning rate, weight decay, patience early-stopping, num_workers, AMP. Katalog penuh arsitektur, level ablasi, dan seed didefinisikan di `src/cvl/config.py` (`ALL_ARCHITECTURES`, `ALL_ABLATION_LEVELS`, `ALL_SEEDS`).
+`configs/default.yaml` — batch size, epoch, learning rate, weight decay, patience, num_workers, AMP. Katalog arsitektur/level/seed ada di `src/cvl/config.py`.
 
-### Konfigurasi lewat `.env`
+Untuk mempersempit grid tanpa mengedit kode, buat `.env` di root repo (`cp .env.example .env`):
 
-Untuk **mempersempit grid** (smoke test / hemat GPU) tanpa mengedit kode, buat file `.env` di root repo (dibaca otomatis oleh `src/cvl/config.py`). Salin dari contoh:
+| Variabel | Arti | Contoh |
+|---|---|---|
+| `CVL_ARCHS` | subset arsitektur | `resnet50` |
+| `CVL_LEVELS` | level ablasi | `1,4` |
+| `CVL_SEEDS` | seed | `0` |
+| `CVL_MODES` | mode | `pretrained` |
+| `CVL_MAX_WRITERS` | batasi jumlah penulis | `10` |
+| `CVL_PRETRAINED_EPOCHS` / `CVL_SCRATCH_EPOCHS` | override epoch | `2` |
+| `CVL_BATCH_SIZE` | override batch size | `32` |
 
-```bash
-cp .env.example .env
-```
+Baris yang diisi = subset; dikosongkan atau dihapus = nilai penuh. Environment variable menang atas isi `.env`, jadi bisa override sekali jalan seperti pada Langkah 5. `.env` tidak di-commit.
 
-| Variabel | Arti | Contoh | Penuh (default bila kosong) |
-|---|---|---|---|
-| `CVL_ARCHS` | subset arsitektur | `resnet50` | `resnet50,convnext_tiny,efficientnetv2_s,vit_small,swin_tiny` |
-| `CVL_LEVELS` | level ablasi (halaman latih/penulis) | `1,4` | `1,2,3,4` |
-| `CVL_SEEDS` | seed | `0` | `0,1,2` |
-| `CVL_MODES` | mode | `pretrained` | `pretrained,scratch` |
-| `CVL_MAX_WRITERS` | batasi jumlah penulis | `10` | semua penulis |
-| `CVL_PRETRAINED_EPOCHS` / `CVL_SCRATCH_EPOCHS` | override epoch | `2` | dari `default.yaml` |
-| `CVL_BATCH_SIZE` | override batch size | `32` | dari `default.yaml` |
-
-Aturannya: **baris yang diisi = subset; dikosongkan/dihapus = pakai nilai penuh.** Hapus `.env` (atau kosongkan semua) → otomatis kembali ke grid penuh 120 run.
-
-> `CVL_MAX_WRITERS` memengaruhi manifest, jadi ubah nilainya lalu **jalankan ulang `prep_manifests.py`** sebelum `run_all.py`.
->
-> Environment variable menang atas isi `.env`, jadi bisa override sekali jalan: `CVL_MODES=pretrained python scripts/run_all.py`.
->
-> `.env` **tidak** di-commit (masuk `.gitignore`); hanya `.env.example` yang ikut repo.
+`CVL_MAX_WRITERS` mempengaruhi manifest — ubah nilainya lalu jalankan ulang `prep_manifests.py`.
 
 ## Catatan
 
-- Metrik retrieval (mAP) dihitung pada level baris di set test (leave-one-out, self dikecualikan); metrik klasifikasi diagregasi ke level halaman (rata-rata softmax per `writer|page`).
-- Augmentasi sengaja **tanpa horizontal flip** (membalik tulisan merusak identitas penulis).
-- GFLOPs belum dihitung (efisiensi dilaporkan via jumlah parameter + throughput); bisa ditambahkan bila diperlukan.
+- Metrik retrieval (mAP) dihitung di level baris pada set test (leave-one-out, self dikecualikan); metrik klasifikasi diagregasi ke level halaman (rata-rata softmax per `writer|page`).
+- Augmentasi sengaja **tanpa horizontal flip** — membalik tulisan merusak identitas penulis.
+- **Citra baris berasio ~12:1, dan pipeline saat ini hanya melihat 7,5% bagian tengahnya.** `Resize(224)` menyetel sisi pendek, lalu `RandomResizedCrop` dengan `ratio=(0.9,1.1)` tidak pernah bisa dipenuhi sehingga jatuh ke center-crop deterministik — artinya crop itu juga bukan augmentasi. Skenario `FT1` menguji perbaikannya secara terkendali; grid utama sengaja dibiarkan apa adanya. Lihat §2 spec.
+- GFLOPs belum dihitung (efisiensi dilaporkan lewat jumlah parameter + throughput).
