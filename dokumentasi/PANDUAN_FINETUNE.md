@@ -20,7 +20,7 @@ LLRD (S3/S4): head 1,0e-4 → stages.3 7,0e-5 → stages.2 4,9e-5 (terverifikasi
 
 ## 3. Integrasi (kerja rekan ±10 menit)
 
-1. Salin `finetune.py` → `src/cvl/finetune.py`
+1. ~~Salin `finetune.py` → `src/cvl/finetune.py`~~ (sudah ada di `src/cvl/finetune.py`)
 2. Di `src/cvl/train.py`, ganti baris optimizer:
 
 ```python
