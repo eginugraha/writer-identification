@@ -5,7 +5,9 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from .dataset import LineDataset
-from .models import build_model
+from .models import build_model, set_arcface_margin
+from .finetune import freeze_layers, build_param_groups
+from .scenarios import Scenario
 
 @dataclass
 class RunConfig:
@@ -24,16 +26,39 @@ def _seed_all(seed: int):
 def _num_classes(manifest) -> int:
     return int(manifest["label"].max()) + 1
 
-def train_one_run(manifest, rc: RunConfig, out_dir, device, hp: dict) -> dict:
+def arcface_margin_at(epoch: int, warmup_epochs: int, m_target: float) -> float:
+    """Margin ArcFace dinaikkan linear 0 -> m_target sepanjang epoch warmup.
+
+    Tanpa ini ArcFace sering gagal konvergen di epoch awal karena head-nya
+    diinisialisasi acak sementara margin sudah penuh.
+    """
+    if warmup_epochs <= 0 or epoch >= warmup_epochs:
+        return m_target
+    return m_target * epoch / warmup_epochs
+
+def train_one_run(manifest, rc: RunConfig, out_dir, device, hp: dict,
+                  scenario: Scenario | None = None) -> dict:
+    sc = scenario or Scenario()
     _seed_all(rc.seed)
     out_dir = Path(out_dir); out_dir.mkdir(parents=True, exist_ok=True)
-    train_ds = LineDataset(manifest[manifest.split == "train"], train=True)
-    val_ds = LineDataset(manifest[manifest.split == "val"], train=False)
+    train_ds = LineDataset(manifest[manifest.split == "train"], train=True,
+                           geometry=sc.geometry, aug=sc.aug)
+    val_ds = LineDataset(manifest[manifest.split == "val"], train=False,
+                         geometry=sc.geometry, aug=sc.aug)
     nw = hp.get("num_workers", 0)
     tl = DataLoader(train_ds, batch_size=rc.batch_size, shuffle=True, num_workers=nw)
     vl = DataLoader(val_ds, batch_size=rc.batch_size, shuffle=False, num_workers=nw)
-    model = build_model(rc.arch, _num_classes(manifest), pretrained=(rc.mode == "pretrained")).to(device)
-    opt = torch.optim.AdamW(model.parameters(), lr=rc.lr, weight_decay=rc.weight_decay)
+    model = build_model(rc.arch, _num_classes(manifest),
+                        pretrained=(rc.mode == "pretrained"),
+                        drop_path=sc.drop_path, head=sc.head).to(device)
+    if sc.freeze_strategy is not None:
+        freeze_layers(model, sc.freeze_strategy)
+        opt = torch.optim.AdamW(
+            build_param_groups(model, sc.freeze_strategy, base_lr=rc.lr),
+            weight_decay=rc.weight_decay)
+    else:
+        opt = torch.optim.AdamW(model.parameters(), lr=rc.lr,
+                                weight_decay=rc.weight_decay)
     # Warmup LR linear beberapa epoch lalu cosine annealing. Tanpa warmup,
     # ConvNeXt/Swin sering divergen di epoch awal lalu kolaps ke 1 kelas.
     warmup_epochs = min(int(hp.get("warmup_epochs", 3)), max(0, rc.epochs - 1))
@@ -46,7 +71,7 @@ def train_one_run(manifest, rc: RunConfig, out_dir, device, hp: dict) -> dict:
             opt, [warmup, cosine], milestones=[warmup_epochs])
     else:
         sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(1, rc.epochs))
-    crit = torch.nn.CrossEntropyLoss()
+    crit = torch.nn.CrossEntropyLoss(label_smoothing=sc.label_smoothing)
     use_amp = hp.get("amp", False) and device != "cpu"
     amp_device = "cuda" if device != "cpu" else "cpu"
     scaler = torch.amp.GradScaler(amp_device, enabled=use_amp)
@@ -55,13 +80,15 @@ def train_one_run(manifest, rc: RunConfig, out_dir, device, hp: dict) -> dict:
     lvl = "full" if rc.level is None else str(rc.level)
     tag = f"{rc.arch}_L{lvl}_{rc.mode}_s{rc.seed}"
     for epoch in range(rc.epochs):
+        set_arcface_margin(model, arcface_margin_at(epoch, warmup_epochs, 0.3))
         model.train()
         loss_sum = n_seen = 0
         for x, y in tl:
             x, y = x.to(device), y.to(device)
             opt.zero_grad()
             with torch.amp.autocast(amp_device, enabled=use_amp):
-                loss = crit(model(x), y)
+                logits = model(x, y) if sc.head == "arcface" else model(x)
+                loss = crit(logits, y)
             scaler.scale(loss).backward(); scaler.step(opt); scaler.update()
             loss_sum += loss.item() * len(x); n_seen += len(x)
         sched.step(); epochs_ran += 1
