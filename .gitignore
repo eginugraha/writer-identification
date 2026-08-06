@@ -12,3 +12,4 @@ results/keep/
 *.bak
 *.log
 *.pid
+*.lock
