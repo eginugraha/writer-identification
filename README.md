@@ -103,7 +103,35 @@ Server 2:
 CVL_MODES=pretrained python scripts/run_all.py --date pretrained
 ```
 
+> ⚠️ **Periksa baris pertama log sebelum meninggalkannya jalan.** Perintah di atas mencetak cakupan grid sebelum melatih apa pun:
+>
+> ```
+> grid: archs=['resnet50', 'convnext_tiny', 'efficientnetv2_s', 'vit_small', 'swin_tiny'] levels=[1, 2, 3, 4] modes=['scratch'] seeds=[0, 1, 2, 3, 4]
+> output: results/results-scratch.csv (0 run sudah ada -> di-skip) | ckpt: results/checkpoints-scratch
+> ```
+>
+> Kalau daftarnya lebih pendek dari itu, ada file `.env` yang mempersempit grid — hapus atau ganti namanya, lalu ulangi. `.env` tidak ikut `git clone` (masuk `.gitignore`), tapi **ikut kalau repo disalin dengan `rsync`/`scp`**. Ini penting karena `.env` smoke-test bisa memangkas 200 run jadi 2 tanpa satu pun pesan error, dan `CVL_MAX_WRITERS` bahkan mengubah manifest di Langkah 3 sehingga jumlah kelasnya bukan 308.
+
 Masing-masing menulis `results/results-<tag>.csv` dan `results/checkpoints-<tag>/`. Tiap run mencetak progres per epoch dan baris `done <run_id>: top1=... map=...` saat selesai.
+
+**Jalankan di `tmux`** supaya sesi SSH yang putus tidak membunuh prosesnya:
+
+```bash
+tmux new -s scratch
+CVL_MODES=scratch python scripts/run_all.py --date scratch 2>&1 | tee run-scratch.log
+# lepas: Ctrl+B lalu D   ·   sambung lagi: tmux attach -t scratch
+```
+
+Tanpa `tmux`: `CVL_MODES=scratch nohup python -u scripts/run_all.py --date scratch > run-scratch.log 2>&1 &` — flag `-u` wajib, tanpa itu Python menahan output di buffer dan log-nya kosong berjam-jam.
+
+**Pantau progres dan sisa waktu:**
+
+```bash
+tail -f run-scratch.log
+CVL_MODES=scratch python scripts/progress.py --date scratch
+```
+
+`progress.py` mencetak cakupan yang dihitungnya di baris pertama, jadi ia juga menangkap masalah `.env` di atas. Estimasi sisanya memakai rata-rata run yang sudah selesai — cenderung optimis di awal, karena level besar jauh lebih lambat daripada level kecil.
 
 **Kalau pod putus:** ulangi perintah yang **sama persis**. Resume bekerja per file CSV — run yang sudah tercatat di CSV itu dilewati. Mengganti tag `--date` berarti mulai dari nol.
 
