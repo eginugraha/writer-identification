@@ -175,9 +175,14 @@ def test_aug_strong_benar_benar_mengacak():
     assert len({o.numpy().tobytes() for o in outs}) > 1
 
 
-def test_aug_strong_tidak_mengubah_geometri(wide_line_image):
-    """AUG hanya boleh menaikkan kekuatan augmentasi, bukan memperluas
-    bagian baris yang terlihat — kalau tidak, ia rancu dengan FT1."""
+def test_strip_width_sesuai_fallback_torchvision(wide_line_image):
+    """Aritmetika berdiri sendiri: `_strip_width` harus mereproduksi lebar
+    yang sama seperti fallback rasio torchvision lama (224/0.9 dibulatkan
+    ke atas = 246), bukan nilai apapun yang kebetulan cocok. Ini BUKAN
+    penjaga pemisahan geometry/aug -- itu tugas
+    `test_aug_strong_center_menyematkan_strip_sebelum_crop` di bawah, yang
+    memastikan CenterCrop benar-benar dipasang dengan lebar ini sebelum
+    RandomResizedCrop."""
     from src.cvl.dataset import _strip_width
     assert _strip_width(224) == 246
 
