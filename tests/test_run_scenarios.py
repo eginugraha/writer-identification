@@ -57,6 +57,25 @@ def test_run_scenario_grid_dan_resume(tiny_lines, tmp_path):
     assert len(pd.read_csv(csv)) == 1
 
 
+def test_run_scenario_grid_mencatat_lr(tiny_lines, tmp_path):
+    """hp_skenario's docstring: skenario wajib memakai LR yang sama dengan
+    baseline FT0, "kalau tidak, seluruh perbandingan Studi 2 batal" -- tapi
+    LR yang benar-benar dipakai tidak pernah tercatat di CSV mana pun.
+    Kalau override-nya suatu saat gagal terpasang, tidak ada artefak yang
+    membuktikannya."""
+    df = scan_lines(tiny_lines)
+    kept, _ = filter_cohort(df, min_pages=5, exclude=set())
+    m = build_manifest(kept, n_train_pages=2, seed=0)
+    csv = tmp_path / "results-finetune.csv"
+    hp = {"num_workers": 0, "amp": False, "early_stop_patience": 1,
+          "pretrained_epochs": 1, "scratch_epochs": 1, "batch_size": 8, "lr": 1e-3}
+    run_scenario_grid(m, names=["FT2"], seeds=[0], results_csv=csv,
+                      ckpt_root=tmp_path / "ck", device="cpu", hp=hp,
+                      arch="convnext_tiny", level=2)
+    row = pd.read_csv(csv).iloc[0]
+    assert row["lr"] == hp["lr"]
+
+
 def test_ft0_dilewati(tiny_lines, tmp_path):
     """FT0 disalin dari results-pretrained.csv, tidak pernah dijalankan."""
     df = scan_lines(tiny_lines)

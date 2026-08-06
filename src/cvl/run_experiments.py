@@ -52,5 +52,5 @@ def run_grid(manifest_by_seed_level, archs, levels, modes, seeds,
                                              batch_size=hp["batch_size"])
                     _append_row(results_csv, {"run_id": rid, "arch": arch,
                         "level": ("full" if level is None else level), "mode": mode,
-                        "seed": seed, **tr, **ev, **env_metadata(device)})
+                        "seed": seed, "lr": lr, **tr, **ev, **env_metadata(device)})
                     print(f"done {rid}: top1={ev['top1_page']:.3f} map={ev['map_line']:.3f}")
