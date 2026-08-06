@@ -140,14 +140,14 @@ python -m pip install -r requirements.lock.txt
 
 **`num_workers` adalah pengungkit kecepatan terbesar yang Anda punya, bukan pilihan GPU.** Beban ini terbatas oleh CPU: ia berjalan pada ~4,8 TFLOPS efektif, jauh di bawah kemampuan kartu mana pun yang layak dipakai. Yang menghabiskan waktu adalah decode TIF, resize ke ~3284×224, dan `RandomAffine` — semuanya di CPU.
 
-`configs/default.yaml` sudah disetel untuk pod **12 vCPU / 31 GB RAM**:
+`configs/default.yaml` sudah disetel untuk pod dengan **kuota 10 vCPU**:
 
 ```yaml
-num_workers: 10         # vCPU - 2
-prefetch_factor: 2      # 2 loader × 10 worker × 2 = 1,5 GB shared memory
+num_workers: 8          # kuota cgroup - 2
+prefetch_factor: 2      # 2 loader × 8 worker × 2 = 1,2 GB shared memory
 ```
 
-Kalau pod Anda berbeda, sesuaikan `num_workers` ke `nproc - 2` — Langkah 1b akan memberi tahu angkanya dan menandai kalau tidak cocok. Perkiraan dampaknya pada Studi 1 (latih + evaluasi, per server):
+Kalau pod Anda berbeda, pakai angka `vCPU efektif` dari Langkah 1b dikurangi 2 — **bukan** `nproc`, yang melaporkan core host dan bisa berkali-kali lipat lebih besar daripada kuota yang Anda bayar. Perkiraan dampaknya pada Studi 1 (latih + evaluasi, per server):
 
 | vCPU | worker | Per server |
 |---|---|---|
