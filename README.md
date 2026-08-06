@@ -92,19 +92,29 @@ Ia memeriksa tiga hal yang kalau salah baru ketahuan berjam-jam kemudian:
 2. **VRAM puncak sebenarnya** pada `batch_size` dari `configs/default.yaml`, diukur dengan EfficientNetV2-S — model paling rakus aktivasi di katalog. Batch 64 sudah terbukti aman di 20 GB, tapi angka pastinya lebih baik dilihat daripada dipercaya.
 3. **vCPU, dan apakah `/dev/shm` cukup untuk antrean prefetch.** Docker membatasi shared memory ke 64 MB secara bawaan; gejala kalau sempit adalah `DataLoader worker killed by signal: Bus error` beberapa menit setelah mulai — mudah disalahartikan sebagai masalah GPU.
 
-Setiap baris bertanda `!!` harus dibereskan sebelum melanjutkan. Contoh keluaran sehat:
+Setiap baris bertanda `!!` harus dibereskan sebelum melanjutkan. Keluaran nyata dari pod yang dipakai (RTX PRO 4000 Blackwell):
 
 ```
+== versi ==
+  torch 2.13.0+cu130 | CUDA 13.0 | timm 1.0.28
+
 == GPU ==
-  NVIDIA RTX PRO 4000 Blackwell | compute capability 12.0 | VRAM 24 GB
-  kernel tersedia di build ini: ['sm_75', 'sm_80', 'sm_86', 'sm_90', 'sm_120']
+  NVIDIA RTX PRO 4000 Blackwell | compute capability 12.0 | VRAM 25 GB
+  kernel tersedia di build ini: ['sm_75', 'sm_80', 'sm_86', 'sm_90', 'sm_100', 'sm_120']
 
 == forward+backward tf_efficientnetv2_s, batch 64 ==
-  OK — VRAM puncak 12.4 GB dari 24 GB (52%)
+  OK — VRAM puncak 5.3 GB dari 25 GB (21%)
 
 == CPU, RAM, shared memory ==
-  vCPU terdeteksi: 12 -> saran num_workers = 10 (sekarang 10)
+  vCPU efektif: 10 (dari kuota cgroup v2; core host 48) -> saran num_workers = 8 (sekarang 8)
+  antrean prefetch: 2 loader x 8 worker x 2 = 1.2 GB di shared memory
+  /dev/shm tersedia: 15.0 GB
 ```
+
+Dua hal yang layak diperhatikan dari keluaran itu:
+
+- **VRAM puncak cuma 21%.** Batch 64 sangat lapang di kartu 24 GB; tidak ada risiko OOM di seluruh grid. Jangan tergoda menaikkan `batch_size` — itu parameter eksperimen, mengubahnya mengubah hasil dan memutus kesebandingan dengan baseline.
+- **`vCPU efektif` (10) jauh di bawah `core host` (48).** Angka yang mengikat adalah kuota kontainer. Menyetel `num_workers` dari 48 akan membuat puluhan proses berebut 10 CPU — lebih lambat daripada bawaan, plus antrean prefetch membengkak beberapa GB.
 
 ## Langkah 2 — Taruh dataset
 
@@ -151,9 +161,9 @@ Kalau pod Anda berbeda, pakai angka `vCPU efektif` dari Langkah 1b dikurangi 2 �
 
 | vCPU | worker | Per server |
 |---|---|---|
-| 8 | 8 | ~22 j |
-| **12** | **10** | **~15–19 j** |
-| 28 | 26 | ~6,5–10 j |
+| 10 (pod ini) | 8 | ~17 j |
+| 20 | 18 | ~11 j |
+| 28 | 26 | ~7 j |
 
 `persistent_workers` menyala otomatis begitu `num_workers > 0`. Tanpanya PyTorch menyalakan dan mematikan seluruh proses pekerja **dua kali setiap epoch** — biaya tetap ~3,8 detik yang di level data terkecil memakan 38% waktu tiap epoch, dan justru membesar seiring jumlah worker.
 
