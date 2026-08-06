@@ -169,7 +169,10 @@ def loader_kwargs(hp: dict, device: str) -> dict:
     kw = {"num_workers": nw}
     if nw > 0:
         kw["persistent_workers"] = True
-        kw["prefetch_factor"] = 4
+        # Antrean prefetch hidup di shared memory: num_workers x prefetch_factor
+        # x 39 MB per loader, dan loader latih + validasi sama-sama persistent.
+        # Turunkan ke 2 pada pod ber-RAM kecil atau /dev/shm sempit.
+        kw["prefetch_factor"] = hp.get("prefetch_factor", 4)
     if device != "cpu":
         kw["pin_memory"] = True
     return kw
