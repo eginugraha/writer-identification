@@ -295,3 +295,10 @@ def test_loader_kwargs_diterima_dataloader_sungguhan():
     for nw in (0, 2):
         dl = DataLoader(ds, batch_size=2, **loader_kwargs({"num_workers": nw}, "cpu"))
         assert len(list(dl)) == 2
+
+
+def test_loader_kwargs_prefetch_bisa_diturunkan():
+    """Antrean prefetch memakan shared memory; pod ber-RAM kecil perlu menurunkannya."""
+    from src.cvl.dataset import loader_kwargs
+    assert loader_kwargs({"num_workers": 10}, "cpu")["prefetch_factor"] == 4
+    assert loader_kwargs({"num_workers": 10, "prefetch_factor": 2}, "cpu")["prefetch_factor"] == 2
