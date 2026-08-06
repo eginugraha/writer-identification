@@ -60,6 +60,6 @@ def run_scenario_grid(manifest, names, seeds, results_csv, ckpt_root, device, hp
             ev = evaluate_checkpoint(out_dir / "best.pt", manifest, arch, device,
                                      batch_size=hp["batch_size"], scenario=sc)
             _append_row(results_csv, {"run_id": rid, "scenario": name, "arch": arch,
-                "level": level, "mode": "pretrained", "seed": seed,
+                "level": level, "mode": "pretrained", "seed": seed, "lr": rc.lr,
                 **tr, **ev, **env_metadata(device)})
             print(f"done {rid}: top1={ev['top1_page']:.3f} map={ev['map_line']:.3f}")

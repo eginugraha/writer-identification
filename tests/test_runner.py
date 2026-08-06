@@ -23,6 +23,23 @@ def test_run_grid_and_resume(tiny_lines, tmp_path):
              results_csv=csv, ckpt_root=tmp_path / "ck", device="cpu", hp=hp)
     assert len(pd.read_csv(csv)) == 1
 
+def test_run_grid_mencatat_lr(tiny_lines, tmp_path):
+    """LR yang benar-benar dipakai (termasuk override per-arsitektur di
+    LR_OVERRIDES) wajib tercatat di CSV, bukan cuma dicetak ke stdout --
+    kalau tidak, tidak ada artefak yang membuktikan LR mana yang dipakai
+    tiap run."""
+    df = scan_lines(tiny_lines)
+    kept, _ = filter_cohort(df, min_pages=5, exclude=set())
+    mbl = {2: build_manifest(kept, n_train_pages=2, seed=0)}
+    csv = tmp_path / "results.csv"
+    hp = {"num_workers": 0, "amp": False, "early_stop_patience": 1,
+          "pretrained_epochs": 1, "scratch_epochs": 1, "batch_size": 8, "lr": 1e-3}
+    run_grid({0: mbl}, archs=["resnet50"], levels=[2], modes=["scratch"], seeds=[0],
+             results_csv=csv, ckpt_root=tmp_path / "ck", device="cpu", hp=hp)
+    row = pd.read_csv(csv).iloc[0]
+    assert row["lr"] == hp["lr"]
+
+
 def test_run_grid_records_env_metadata(tiny_lines, tmp_path):
     df = scan_lines(tiny_lines)
     kept, _ = filter_cohort(df, min_pages=5, exclude=set())
