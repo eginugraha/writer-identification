@@ -47,15 +47,28 @@ git clone <url-repo> thesis && cd thesis
 git checkout research
 
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 Butuh Python ≥3.10. Semua perintah `python scripts/...` dijalankan **dari root repo**.
 
+> **Pakai `python -m pip`, bukan `pip` polos.** Pada image RunPod, `pip` sering menunjuk ke Python lain meski prompt sudah menampilkan `(.venv)`. Gejalanya menyesatkan: pemasangan melaporkan sukses, tapi `import` tetap gagal dengan `ModuleNotFoundError`. Bentuk `python -m pip` menjamin paket masuk ke interpreter yang sama dengan yang menjalankan skrip.
+>
+> Kalau instalasi gagal karena kehabisan ruang — `torch` sekitar 2,5 GB plus cache seukuran itu, dan container disk RunPod jauh lebih kecil daripada volume `/workspace` — arahkan cache-nya ke volume:
+> ```bash
+> TMPDIR=/workspace/tmp python -m pip install --cache-dir /workspace/.pipcache -r requirements.txt
+> ```
+
+Verifikasi paketnya benar-benar masuk sebelum lanjut:
+
+```bash
+python -m pip list | grep -Ei "torch|timm|pandas|pyarrow"
+```
+
 Kunci versinya, lalu pakai file ini untuk memasang server 2:
 
 ```bash
-pip freeze > requirements.lock.txt
+python -m pip freeze > requirements.lock.txt
 ```
 
 Ini penting: `requirements.txt` tidak mengunci versi apa pun, dan timm sesekali mengubah tag bobot pretrained bawaan antar rilis. Dua pod yang dibuat selang beberapa hari bisa dapat versi berbeda.
@@ -70,7 +83,12 @@ python scripts/preflight.py
 
 Ia memeriksa tiga hal yang kalau salah baru ketahuan berjam-jam kemudian:
 
-1. **Build PyTorch punya kernel untuk kartu ini.** Kartu generasi Blackwell (RTX PRO 4000/4500/6000) butuh CUDA 12.8+ dan kernel `sm_120`. Tanpa itu prosesnya mati pada peluncuran kernel pertama — bukan pada `torch.cuda.is_available()`, yang tetap melaporkan `True`. Karena itu cek ini menjalankan forward **dan** backward sungguhan, bukan sekadar menanyakan ketersediaan CUDA.
+1. **Build PyTorch punya kernel untuk kartu ini.** Kartu generasi Blackwell (RTX PRO 4000/4500/6000) butuh CUDA 12.8+ dan kernel `sm_120`. Tanpa itu prosesnya mati pada peluncuran kernel pertama — bukan pada `torch.cuda.is_available()`, yang tetap melaporkan `True`. Karena itu cek ini menjalankan forward **dan** backward sungguhan, bukan sekadar menanyakan ketersediaan CUDA. Kalau baris kernel ditandai `!!`, pasang ulang dari indeks CUDA yang sesuai:
+   ```bash
+   python -m pip install --force-reinstall torch torchvision \
+     --index-url https://download.pytorch.org/whl/cu128
+   ```
+   Lalu jalankan `python -m pip freeze > requirements.lock.txt` **ulang**, supaya pod kedua mendapat build yang sama.
 2. **VRAM puncak sebenarnya** pada `batch_size` dari `configs/default.yaml`, diukur dengan EfficientNetV2-S — model paling rakus aktivasi di katalog. Batch 64 sudah terbukti aman di 20 GB, tapi angka pastinya lebih baik dilihat daripada dipercaya.
 3. **vCPU, dan apakah `/dev/shm` cukup untuk antrean prefetch.** Docker membatasi shared memory ke 64 MB secara bawaan; gejala kalau sempit adalah `DataLoader worker killed by signal: Bus error` beberapa menit setelah mulai — mudah disalahartikan sebagai masalah GPU.
 
@@ -117,7 +135,7 @@ python scripts/prep_manifests.py
 Ulangi Langkah 1–3 di pod kedua, tapi pasang dependensinya dari file terkunci:
 
 ```bash
-pip install -r requirements.lock.txt
+python -m pip install -r requirements.lock.txt
 ```
 
 **`num_workers` adalah pengungkit kecepatan terbesar yang Anda punya, bukan pilihan GPU.** Beban ini terbatas oleh CPU: ia berjalan pada ~4,8 TFLOPS efektif, jauh di bawah kemampuan kartu mana pun yang layak dipakai. Yang menghabiskan waktu adalah decode TIF, resize ke ~3284×224, dan `RandomAffine` — semuanya di CPU.
