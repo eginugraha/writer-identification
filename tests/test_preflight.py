@@ -42,3 +42,27 @@ def test_hitungan_shm_ikut_prefetch_dan_worker(capsys, monkeypatch):
     # 2 loader x 10 worker x 2 x 39MB = 1.5 GB ; prefetch 4 -> 3.1 GB
     assert "1.5 GB di shared memory" in kecil
     assert "3.1 GB di shared memory" in besar
+
+
+def test_vcpu_pakai_kuota_cgroup_v2(tmp_path, monkeypatch):
+    """Kuota kontainer, bukan core host — pod 12 vCPU di host 48 core harus
+    melaporkan 12, kalau tidak num_workers akan disetel jauh terlalu tinggi."""
+    cg = tmp_path / "cpu.max"
+    cg.write_text("1200000 100000\n")          # 12 CPU
+    monkeypatch.setattr(pf, "Path", lambda p: cg if p == "/sys/fs/cgroup/cpu.max" else Path(p))
+    n, sumber = pf.vcpu_efektif()
+    assert n == 12 and "cgroup v2" in sumber
+
+
+def test_vcpu_abaikan_cgroup_tanpa_kuota(tmp_path, monkeypatch):
+    """'max' berarti tanpa batas — jangan diartikan sebagai 1 CPU."""
+    cg = tmp_path / "cpu.max"
+    cg.write_text("max 100000\n")
+    monkeypatch.setattr(pf, "Path", lambda p: cg if p == "/sys/fs/cgroup/cpu.max" else Path(p))
+    n, sumber = pf.vcpu_efektif()
+    assert n >= 1 and "cgroup v2" not in sumber
+
+
+def test_vcpu_melaporkan_sumbernya():
+    n, sumber = pf.vcpu_efektif()
+    assert n >= 1 and isinstance(sumber, str) and sumber
