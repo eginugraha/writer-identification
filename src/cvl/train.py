@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from .dataset import LineDataset
+from .dataset import LineDataset, loader_kwargs
 from .models import build_model, set_arcface_margin
 from .finetune import freeze_layers, build_param_groups
 from .scenarios import Scenario
@@ -45,9 +45,10 @@ def train_one_run(manifest, rc: RunConfig, out_dir, device, hp: dict,
                            geometry=sc.geometry, aug=sc.aug)
     val_ds = LineDataset(manifest[manifest.split == "val"], train=False,
                          geometry=sc.geometry, aug=sc.aug)
-    nw = hp.get("num_workers", 0)
-    tl = DataLoader(train_ds, batch_size=rc.batch_size, shuffle=True, num_workers=nw)
-    vl = DataLoader(val_ds, batch_size=rc.batch_size, shuffle=False, num_workers=nw)
+    tl = DataLoader(train_ds, batch_size=rc.batch_size, shuffle=True,
+                    **loader_kwargs(hp, device))
+    vl = DataLoader(val_ds, batch_size=rc.batch_size, shuffle=False,
+                    **loader_kwargs(hp, device))
     model = build_model(rc.arch, _num_classes(manifest),
                         pretrained=(rc.mode == "pretrained"),
                         drop_path=sc.drop_path, head=sc.head).to(device)

@@ -49,7 +49,8 @@ def run_grid(manifest_by_seed_level, archs, levels, modes, seeds,
                     out_dir = ckpt_root / rid
                     tr = train_one_run(manifest, rc, out_dir, device, hp)
                     ev = evaluate_checkpoint(out_dir / "best.pt", manifest, arch, device,
-                                             batch_size=hp["batch_size"])
+                                             batch_size=hp["batch_size"],
+                                             num_workers=hp.get("num_workers", 0))
                     _append_row(results_csv, {"run_id": rid, "arch": arch,
                         "level": ("full" if level is None else level), "mode": mode,
                         "seed": seed, "lr": lr, **tr, **ev, **env_metadata(device)})

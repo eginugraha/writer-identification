@@ -260,3 +260,38 @@ def test_aug_strong_linewindow_tidak_memakai_centercrop_tambahan():
 
     steps = _aug_stage("linewindow", 224, "strong")
     assert not any(isinstance(s, T.CenterCrop) for s in steps)
+
+
+def test_loader_kwargs_tanpa_worker_tidak_menyetel_persistent():
+    """persistent_workers ilegal saat num_workers=0 — DataLoader akan melempar."""
+    from src.cvl.dataset import loader_kwargs
+    kw = loader_kwargs({"num_workers": 0}, "cpu")
+    assert kw == {"num_workers": 0}
+
+
+def test_loader_kwargs_dengan_worker_menyetel_persistent():
+    """Ini yang menyerang biaya tetap ~3,8 detik per epoch: tanpa persistent,
+    seluruh proses pekerja dinyalakan-dimatikan dua kali tiap epoch."""
+    from src.cvl.dataset import loader_kwargs
+    kw = loader_kwargs({"num_workers": 8}, "cpu")
+    assert kw["num_workers"] == 8
+    assert kw["persistent_workers"] is True
+    assert kw["prefetch_factor"] == 4
+    assert "pin_memory" not in kw          # tidak berguna di CPU
+
+
+def test_loader_kwargs_pin_memory_hanya_di_gpu():
+    from src.cvl.dataset import loader_kwargs
+    assert loader_kwargs({"num_workers": 26}, "cuda")["pin_memory"] is True
+    assert "pin_memory" not in loader_kwargs({"num_workers": 26}, "cpu")
+
+
+def test_loader_kwargs_diterima_dataloader_sungguhan():
+    """Kombinasi argumennya harus benar-benar sah, bukan cuma dict yang cantik."""
+    import torch
+    from torch.utils.data import DataLoader, TensorDataset
+    from src.cvl.dataset import loader_kwargs
+    ds = TensorDataset(torch.zeros(4, 2), torch.zeros(4, dtype=torch.long))
+    for nw in (0, 2):
+        dl = DataLoader(ds, batch_size=2, **loader_kwargs({"num_workers": nw}, "cpu"))
+        assert len(list(dl)) == 2

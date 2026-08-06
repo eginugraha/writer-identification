@@ -58,7 +58,8 @@ def run_scenario_grid(manifest, names, seeds, results_csv, ckpt_root, device, hp
             out_dir = ckpt_root / rid
             tr = train_one_run(manifest, rc, out_dir, device, hp, scenario=sc)
             ev = evaluate_checkpoint(out_dir / "best.pt", manifest, arch, device,
-                                     batch_size=hp["batch_size"], scenario=sc)
+                                     batch_size=hp["batch_size"], scenario=sc,
+                                     num_workers=hp.get("num_workers", 0))
             _append_row(results_csv, {"run_id": rid, "scenario": name, "arch": arch,
                 "level": level, "mode": "pretrained", "seed": seed, "lr": rc.lr,
                 **tr, **ev, **env_metadata(device)})
