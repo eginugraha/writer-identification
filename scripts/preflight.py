@@ -17,9 +17,22 @@ import shutil
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import timm
-import torch
-import yaml
+
+try:
+    import timm
+    import torch
+    import yaml
+except ModuleNotFoundError as e:
+    # Cek ini gunanya mendiagnosis pod, jadi ia tidak boleh ikut mati dengan
+    # traceback yang tidak menjelaskan apa-apa.
+    sys.exit(
+        f"Paket '{e.name}' belum terpasang.\n"
+        "Dependensi belum dipasang di environment ini. Dari root repo:\n"
+        "    pip install -r requirements.txt\n"
+        "Kalau ini pod kedua, pakai berkas terkunci dari pod pertama:\n"
+        "    pip install -r requirements.lock.txt\n"
+        "Pastikan venv-nya aktif (prompt diawali '(.venv)') lalu ulangi."
+    )
 
 # Model dengan aktivasi terbesar di katalog — patokan VRAM kasus terburuk.
 ARCH_TERBERAT = "tf_efficientnetv2_s"
