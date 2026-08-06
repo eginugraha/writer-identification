@@ -65,13 +65,18 @@ Verifikasi paketnya benar-benar masuk sebelum lanjut:
 python -m pip list | grep -Ei "torch|timm|pandas|pyarrow"
 ```
 
-Kunci versinya, lalu pakai file ini untuk memasang server 2:
+Kunci versinya untuk dipakai server 2 — **saring ke paket proyek saja**:
 
 ```bash
-python -m pip freeze > requirements.lock.txt
+python -m pip freeze --local \
+  | grep -iE "^(torch|torchvision|timm|numpy|pandas|pyarrow|scikit-learn|pillow|pyyaml|tqdm|matplotlib|pytest)==" \
+  > requirements.lock.txt
+cat requirements.lock.txt
 ```
 
 Ini penting: `requirements.txt` tidak mengunci versi apa pun, dan timm sesekali mengubah tag bobot pretrained bawaan antar rilis. Dua pod yang dibuat selang beberapa hari bisa dapat versi berbeda.
+
+> **Jangan pakai `pip freeze` polos.** Ia menangkap seluruh isi environment termasuk paket sistem bawaan image pod — `dbus-python`, `PyGObject`, `python-apt`. Di pod kedua paket-paket itu akan dicoba dibangun dari source dan gagal dengan pesan seperti `Did not find pkg-config` atau `Run-time dependency dbus-1 found: NO`. Padahal tidak satu pun dipakai proyek ini. Flag `--local` membuang paket di luar venv, dan saringan `grep` membatasi ke dependensi yang benar-benar dideklarasikan.
 
 ## Langkah 1b — Cek pra-terbang
 
@@ -191,11 +196,22 @@ python scripts/prep_manifests.py
 
 ## Langkah 4 — Siapkan server 2 & setel `num_workers`
 
-Ulangi Langkah 1–3 di pod kedua, tapi pasang dependensinya dari file terkunci:
+Ulangi Langkah 1–3 di pod kedua, tapi pasang dependensinya dari file terkunci. **Torch dipasang lebih dulu dari indeks CUDA yang sama** — versi seperti `2.13.0+cu130` tidak ada di PyPI, jadi memasangnya langsung dari lock file akan gagal:
 
 ```bash
+# 1. torch dari indeks CUDA yang sama dengan server 1 (sesuaikan cuXXX
+#    dengan yang tercetak di Langkah 1b server 1)
+python -m pip install --index-url https://download.pytorch.org/whl/cu130 \
+  torch torchvision
+
+# 2. sisanya dari lock file
 python -m pip install -r requirements.lock.txt
+
+# 3. wajib: pastikan versinya benar-benar sama dengan server 1
+python -m pip list | grep -Ei "^(torch|torchvision|timm|numpy) "
 ```
+
+Langkah 3 bukan formalitas. Syarat "kedua pod identik" bertumpu pada versi torch dan timm yang sama; kalau berbeda, temuan stabilitas mode scratch tidak bisa dipertahankan. Bandingkan keluarannya dengan server 1 baris per baris sebelum melanjutkan.
 
 **`num_workers` adalah pengungkit kecepatan terbesar yang Anda punya, bukan pilihan GPU.** Beban ini terbatas oleh CPU: ia berjalan pada ~4,8 TFLOPS efektif, jauh di bawah kemampuan kartu mana pun yang layak dipakai. Yang menghabiskan waktu adalah decode TIF, resize ke ~3284×224, dan `RandomAffine` — semuanya di CPU.
 
