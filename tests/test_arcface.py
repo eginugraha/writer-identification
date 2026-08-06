@@ -43,3 +43,24 @@ def test_model_forward_features_dua_dimensi():
     m = ArcFaceModel(backbone, ArcFaceHead(backbone.num_features, 5)).eval()
     f = m.forward_features(torch.randn(2, 3, 224, 224))
     assert f.dim() == 2 and f.shape[0] == 2
+
+
+def test_gradien_tetap_finite_saat_cos_persis_satu_dalam_fp16():
+    """Di bawah AMP (torch.amp.autocast), F.linear mengeluarkan fp16. Fp16
+    tidak bisa merepresentasikan 1.0 - 1e-7 -- ia dibulatkan jadi 1.0 persis,
+    sehingga clamp(-1+1e-7, 1-1e-7) jadi no-op di titik itu, acos(1.0)
+    berada tepat di batas domainnya, dan gradiennya meledak jadi tak-hingga.
+
+    Disimulasikan langsung dengan tensor fp16 (bukan lewat autocast CUDA,
+    yang tidak tersedia di CPU) supaya reproducible tanpa GPU: baris weight
+    kelas target disamakan persis dengan feats-nya sehingga kosinusnya
+    membulat ke 1.0 dalam fp16."""
+    torch.manual_seed(0)
+    h = ArcFaceHead(in_features=8, num_classes=2, s=30.0, m=0.3).half()
+    feats = torch.randn(2, 8, dtype=torch.float16, requires_grad=True)
+    with torch.no_grad():
+        h.weight[0].copy_(feats[0])  # sejajar persis -> cos membulat ke 1.0
+    labels = torch.tensor([0, 1])
+    out = h(feats, labels)
+    out.sum().backward()
+    assert torch.isfinite(feats.grad).all()
