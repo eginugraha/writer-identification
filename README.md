@@ -23,10 +23,11 @@ Hasil dipisah jadi tiga berkas: `results-scratch.csv`, `results-pretrained.csv`,
 src/cvl/          # pipeline: data_prep, dataset, models, arcface, metrics, train,
                   #           evaluate, run_experiments, run_scenarios, scenarios,
                   #           finetune, env_info, report
-scripts/          # entry-point: prep_manifests.py, run_all.py, run_scenarios.py,
-                  #              make_report.py, make_figures.py, progress.py
+scripts/          # entry-point: preflight.py, prep_manifests.py, run_all.py,
+                  #              run_scenarios.py, make_report.py, make_figures.py,
+                  #              progress.py
 configs/          # default.yaml (hyperparameter)
-tests/            # pytest, 88 test, jalan di CPU tanpa dataset
+tests/            # pytest, 97 test, jalan di CPU tanpa dataset
 cvl-database-1-1/ # DATASET — tidak di-commit, taruh manual
 results/          # manifests, checkpoints, CSV, figures (dibuat otomatis)
 ```
@@ -58,6 +59,34 @@ pip freeze > requirements.lock.txt
 ```
 
 Ini penting: `requirements.txt` tidak mengunci versi apa pun, dan timm sesekali mengubah tag bobot pretrained bawaan antar rilis. Dua pod yang dibuat selang beberapa hari bisa dapat versi berbeda.
+
+## Langkah 1b — Cek pra-terbang
+
+Jalankan sekali di tiap pod, **sebelum** menyalin dataset:
+
+```bash
+python scripts/preflight.py
+```
+
+Ia memeriksa tiga hal yang kalau salah baru ketahuan berjam-jam kemudian:
+
+1. **Build PyTorch punya kernel untuk kartu ini.** Kartu generasi Blackwell (RTX PRO 4000/4500/6000) butuh CUDA 12.8+ dan kernel `sm_120`. Tanpa itu prosesnya mati pada peluncuran kernel pertama — bukan pada `torch.cuda.is_available()`, yang tetap melaporkan `True`. Karena itu cek ini menjalankan forward **dan** backward sungguhan, bukan sekadar menanyakan ketersediaan CUDA.
+2. **VRAM puncak sebenarnya** pada `batch_size` dari `configs/default.yaml`, diukur dengan EfficientNetV2-S — model paling rakus aktivasi di katalog. Batch 64 sudah terbukti aman di 20 GB, tapi angka pastinya lebih baik dilihat daripada dipercaya.
+3. **vCPU, dan apakah `/dev/shm` cukup untuk antrean prefetch.** Docker membatasi shared memory ke 64 MB secara bawaan; gejala kalau sempit adalah `DataLoader worker killed by signal: Bus error` beberapa menit setelah mulai — mudah disalahartikan sebagai masalah GPU.
+
+Setiap baris bertanda `!!` harus dibereskan sebelum melanjutkan. Contoh keluaran sehat:
+
+```
+== GPU ==
+  NVIDIA RTX PRO 4000 Blackwell | compute capability 12.0 | VRAM 24 GB
+  kernel tersedia di build ini: ['sm_75', 'sm_80', 'sm_86', 'sm_90', 'sm_120']
+
+== forward+backward tf_efficientnetv2_s, batch 64 ==
+  OK — VRAM puncak 12.4 GB dari 24 GB (52%)
+
+== CPU, RAM, shared memory ==
+  vCPU terdeteksi: 12 -> saran num_workers = 10 (sekarang 10)
+```
 
 ## Langkah 2 — Taruh dataset
 
@@ -91,24 +120,28 @@ Ulangi Langkah 1–3 di pod kedua, tapi pasang dependensinya dari file terkunci:
 pip install -r requirements.lock.txt
 ```
 
-**Setel `num_workers` sesuai vCPU pod — ini pengungkit kecepatan terbesar yang Anda punya.** Beban ini terbatas oleh CPU, bukan GPU: ia berjalan pada ~4,8 TFLOPS efektif, jauh di bawah kemampuan kartu mana pun yang layak dipakai. Yang menghabiskan waktu adalah decode TIF, resize ke ~3284×224, dan `RandomAffine` — semuanya di CPU.
+**`num_workers` adalah pengungkit kecepatan terbesar yang Anda punya, bukan pilihan GPU.** Beban ini terbatas oleh CPU: ia berjalan pada ~4,8 TFLOPS efektif, jauh di bawah kemampuan kartu mana pun yang layak dipakai. Yang menghabiskan waktu adalah decode TIF, resize ke ~3284×224, dan `RandomAffine` — semuanya di CPU.
 
-```bash
-nproc                                    # jumlah vCPU pod
-# lalu di configs/default.yaml: num_workers = nproc - 2
+`configs/default.yaml` sudah disetel untuk pod **12 vCPU / 31 GB RAM**:
+
+```yaml
+num_workers: 10         # vCPU - 2
+prefetch_factor: 2      # 2 loader × 10 worker × 2 = 1,5 GB shared memory
 ```
 
-Nilai bawaannya 8. Pada pod 28 vCPU, membiarkannya di 8 berarti menyia-nyiakan dua pertiga mesin yang Anda sewa. Perkiraan dampaknya pada total Studi 1:
+Kalau pod Anda berbeda, sesuaikan `num_workers` ke `nproc - 2` — Langkah 1b akan memberi tahu angkanya dan menandai kalau tidak cocok. Perkiraan dampaknya pada Studi 1 (latih + evaluasi, per server):
 
-| Konfigurasi | Total | Per server |
+| vCPU | worker | Per server |
 |---|---|---|
-| 8 worker (bawaan) | ~39 j | ~19 j |
-| 26 worker | ~20 j | ~10 j |
-| 26 worker + `persistent_workers` (sudah aktif) | ~14 j | ~7 j |
+| 8 | 8 | ~22 j |
+| **12** | **10** | **~15–19 j** |
+| 28 | 26 | ~6,5–10 j |
 
-`persistent_workers` sudah menyala otomatis begitu `num_workers > 0`. Ini penting justru pada pod ber-vCPU banyak: tanpanya PyTorch menyalakan dan mematikan seluruh proses pekerja **dua kali setiap epoch**, dan biaya itu naik seiring jumlah worker — pada level data terkecil ia bisa memakan lebih banyak waktu daripada yang dihemat.
+`persistent_workers` menyala otomatis begitu `num_workers > 0`. Tanpanya PyTorch menyalakan dan mematikan seluruh proses pekerja **dua kali setiap epoch** — biaya tetap ~3,8 detik yang di level data terkecil memakan 38% waktu tiap epoch, dan justru membesar seiring jumlah worker.
 
-> Angka di tabel itu proyeksi dari model biaya yang dicocokkan ke dua titik data grid lama, bukan hasil pengukuran. Arah dan urutan prioritasnya bisa dipercaya; angka persisnya jangan. Verifikasi dengan membandingkan `train_time_s` run L1 pertama terhadap patokan lama 341 detik (pretrained) / 241 detik (scratch).
+`prefetch_factor` menentukan pemakaian shared memory. Naikkan ke 4 hanya kalau Langkah 1b menunjukkan `/dev/shm` lapang.
+
+> Angka di tabel itu proyeksi dari model biaya yang dicocokkan ke dua titik data grid lama, bukan hasil pengukuran — rentangnya lebar karena penskalaan worker tidak bisa saya pastikan. Arah dan urutan prioritasnya bisa dipercaya; angka persisnya jangan. Verifikasi dengan membandingkan `train_time_s` run L1 pertama terhadap patokan lama 341 detik (pretrained) / 241 detik (scratch).
 
 ## Langkah 5 — Jalankan Studi 1
 
@@ -245,7 +278,7 @@ Tiga aturan yang mempengaruhi cara angka dibaca — rinciannya di §6 spec.
 ## Verifikasi lokal (tanpa GPU/dataset)
 
 ```bash
-.venv/bin/pytest -q      # 88 test
+.venv/bin/pytest -q      # 97 test
 ```
 
 ## Konfigurasi
