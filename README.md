@@ -126,6 +126,25 @@ thesis/cvl-database-1-1/
 
 Hanya gambar di bawah folder `lines/` yang dibaca (`words/`, `pages/`, `xml/` diabaikan). Upload via `runpodctl`, `scp`, atau `rsync` — atau pakai Network Volume agar persist antar-sesi.
 
+**Unggah `lines/` saja.** Dataset penuh 5,1 GB, tapi folder `lines/` cuma **1,3 GB** (13.473 berkas) — sisanya 3,8 GB berisi `words/`, `pages/`, dan `xml/` yang tidak pernah dibaca pipeline. Menyalin semuanya membuang tiga perempat waktu unggah Anda:
+
+```bash
+rsync -a --include='*/' --include='*/lines/***' --exclude='*' \
+  cvl-database-1-1/ <pod>:/workspace/writer-identification/cvl-database-1-1/
+```
+
+**Kebutuhan disk pod** (volume `/workspace`):
+
+| Isi | Server 1 (scratch) | Server 2 (pretrained + Studi 2) |
+|---|---|---|
+| Dataset (`lines/` saja) | 1,3 GB | 1,3 GB |
+| venv dengan torch CUDA | ~7 GB | ~7 GB |
+| Checkpoint | 9,8 GB (100 run × ~98 MB) | 12,3 GB (125 run) |
+| Cache pip | ~2,5 GB | ~2,5 GB |
+| **Total** | **~21 GB** | **~23 GB** |
+
+Volume 50 GB lapang. Checkpoint adalah penyumbang terbesar dan tumbuh sepanjang run — satu `best.pt` berkisar 82 MB (EfficientNetV2-S) sampai 112 MB (ConvNeXt-T). Kalau suatu saat mepet, `python -m pip cache purge` membebaskan ~2,5 GB tanpa efek samping.
+
 ## Langkah 3 — Bangun manifest
 
 ```bash
