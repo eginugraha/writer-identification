@@ -7,6 +7,6 @@ early_stop_patience: 8
 lr: 0.0003
 warmup_epochs: 3
 weight_decay: 0.05
-num_workers: 8          # naikkan ke (vCPU - 2) di pod; lihat README Langkah 4
+num_workers: 10         # 12 vCPU - 2 (RTX PRO 4000); sesuaikan bila pod berubah
 amp: true
-prefetch_factor: 4      # turunkan ke 2 kalau RAM/dev-shm pod terbatas
+prefetch_factor: 2      # 31GB RAM: 2 loader x 10 worker x 2 = 1,5 GB shm
