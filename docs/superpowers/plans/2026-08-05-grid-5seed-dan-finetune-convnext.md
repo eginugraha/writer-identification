@@ -858,7 +858,9 @@ Expected: PASS — semua test di berkas ini lolos
 
 - [ ] **Step 5: Tulis test yang gagal untuk `build_model`**
 
-Tambahkan ke `tests/test_models.py`:
+Tambahkan `import pytest` di puncak `tests/test_models.py` (dipakai oleh
+`pytest.approx` di test drop_path Swin di bawah), lalu tambahkan ke berkas
+yang sama:
 
 ```python
 def test_drop_path_diteruskan():
@@ -873,6 +875,33 @@ def test_drop_path_default_nol():
     rates = [mod.drop_prob for mod in m.modules()
              if mod.__class__.__name__ == "DropPath"]
     assert not rates or max(rates) == 0.0
+
+
+def test_swin_drop_path_default_sama_dengan_timm_tanpa_kwarg():
+    """convnext_tiny kebal terhadap regresi ini karena default timm-nya
+    memang 0. swin_tiny berbeda: `SwinTransformer.__init__` default
+    `drop_path_rate=0.1`, jadi jalur default `build_model` wajib
+    mereproduksi persis panggilan `timm.create_model` TANPA kwarg
+    `drop_path_rate` sama sekali, bukan meneruskan 0.0 secara eksplisit."""
+    import timm
+    acuan = timm.create_model("swin_tiny_patch4_window7_224",
+                              pretrained=False, num_classes=7)
+    rates_acuan = [mod.drop_prob for mod in acuan.modules()
+                   if mod.__class__.__name__ == "DropPath"]
+
+    m = build_model("swin_tiny", num_classes=7, pretrained=False)
+    rates = [mod.drop_prob for mod in m.modules()
+             if mod.__class__.__name__ == "DropPath"]
+
+    assert rates and max(rates) == pytest.approx(0.1)
+    assert max(rates) == pytest.approx(max(rates_acuan))
+
+
+def test_swin_drop_path_eksplisit_tetap_dihormati():
+    m = build_model("swin_tiny", num_classes=7, pretrained=False, drop_path=0.2)
+    rates = [mod.drop_prob for mod in m.modules()
+             if mod.__class__.__name__ == "DropPath"]
+    assert rates and max(rates) == pytest.approx(0.2)
 
 
 def test_head_arcface_bentuk_logit():
@@ -912,13 +941,17 @@ from .config import ALL_ARCHITECTURES
 def build_model(arch_key: str, num_classes: int, pretrained: bool,
                 drop_path: float = 0.0, head: str = "linear"):
     name = ALL_ARCHITECTURES[arch_key]
+    # Hanya teruskan drop_path_rate kalau memang diminta. Sebagian arsitektur
+    # timm (mis. swin_tiny) punya default drop_path_rate bukan-nol di
+    # __init__ sendiri; meneruskan 0.0 secara eksplisit di sini akan
+    # mematikan stochastic depth bawaannya secara diam-diam.
+    extra = {"drop_path_rate": drop_path} if drop_path else {}
     if head == "linear":
         return timm.create_model(name, pretrained=pretrained,
-                                 num_classes=num_classes,
-                                 drop_path_rate=drop_path)
+                                 num_classes=num_classes, **extra)
     if head == "arcface":
         backbone = timm.create_model(name, pretrained=pretrained,
-                                     num_classes=0, drop_path_rate=drop_path)
+                                     num_classes=0, **extra)
         return ArcFaceModel(backbone, ArcFaceHead(backbone.num_features, num_classes))
     raise ValueError(f"head tidak dikenal: {head}")
 

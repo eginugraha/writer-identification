@@ -7,13 +7,17 @@ from .config import ALL_ARCHITECTURES
 def build_model(arch_key: str, num_classes: int, pretrained: bool,
                 drop_path: float = 0.0, head: str = "linear"):
     name = ALL_ARCHITECTURES[arch_key]
+    # Hanya teruskan drop_path_rate kalau memang diminta. Sebagian arsitektur
+    # timm (mis. swin_tiny) punya default drop_path_rate bukan-nol di
+    # __init__ sendiri; meneruskan 0.0 secara eksplisit di sini akan
+    # mematikan stochastic depth bawaannya secara diam-diam.
+    extra = {"drop_path_rate": drop_path} if drop_path else {}
     if head == "linear":
         return timm.create_model(name, pretrained=pretrained,
-                                 num_classes=num_classes,
-                                 drop_path_rate=drop_path)
+                                 num_classes=num_classes, **extra)
     if head == "arcface":
         backbone = timm.create_model(name, pretrained=pretrained,
-                                     num_classes=0, drop_path_rate=drop_path)
+                                     num_classes=0, **extra)
         return ArcFaceModel(backbone, ArcFaceHead(backbone.num_features, num_classes))
     raise ValueError(f"head tidak dikenal: {head}")
 
