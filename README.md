@@ -81,6 +81,8 @@ python scripts/prep_manifests.py
 
 **Tiap server membangun manifest-nya sendiri.** Kolom `path` menyimpan path absolut mesin, jadi manifest tidak bisa disalin antar-server. Ini aman: split-nya terbukti identik lintas mesin untuk seed yang sama, karena `groupby("writer")` dan `sorted(pages)` menormalkan urutan sebelum RNG dipakai.
 
+> Kalau di Langkah 5 muncul `FileNotFoundError` pada path yang bukan milik mesin ini, artinya `results/manifests/` berisi manifest dari mesin lain (ikut terbawa `rsync`). Jalankan ulang langkah ini — ia menimpa berkas yang ada.
+
 ## Langkah 4 — Siapkan server 2
 
 Ulangi Langkah 1–3 di pod kedua, tapi pasang dependensinya dari file terkunci:
@@ -91,16 +93,37 @@ pip install -r requirements.lock.txt
 
 ## Langkah 5 — Jalankan Studi 1
 
+Run ini memakan sekitar 20 jam per server, jadi jalankan di background dengan log — jangan ditunggu di foreground, karena sesi SSH yang putus akan membunuh prosesnya.
+
 Server 1:
 
 ```bash
-CVL_MODES=scratch python scripts/run_all.py --date scratch
+CVL_MODES=scratch nohup python -u scripts/run_all.py --date scratch > run-scratch.log 2>&1 &
+echo $! > run-scratch.pid
 ```
 
 Server 2:
 
 ```bash
-CVL_MODES=pretrained python scripts/run_all.py --date pretrained
+CVL_MODES=pretrained nohup python -u scripts/run_all.py --date pretrained > run-pretrained.log 2>&1 &
+echo $! > run-pretrained.pid
+```
+
+Flag **`-u` wajib**. Tanpa itu Python menahan output di buffer dan log Anda tetap kosong berjam-jam meski prosesnya berjalan normal — mustahil dibedakan dari proses yang macet.
+
+`echo $! > *.pid` menyimpan PID-nya supaya nanti bisa dicek atau dihentikan:
+
+```bash
+ps -p $(cat run-scratch.pid)       # masih hidup?
+kill $(cat run-scratch.pid)        # hentikan
+```
+
+Alternatif dengan `tmux`, kalau Anda ingin bisa melihat outputnya secara langsung:
+
+```bash
+tmux new -s scratch
+CVL_MODES=scratch python -u scripts/run_all.py --date scratch 2>&1 | tee run-scratch.log
+# lepas: Ctrl+B lalu D   ·   sambung lagi: tmux attach -t scratch
 ```
 
 > ⚠️ **Periksa baris pertama log sebelum meninggalkannya jalan.** Perintah di atas mencetak cakupan grid sebelum melatih apa pun:
@@ -114,34 +137,57 @@ CVL_MODES=pretrained python scripts/run_all.py --date pretrained
 
 Masing-masing menulis `results/results-<tag>.csv` dan `results/checkpoints-<tag>/`. Tiap run mencetak progres per epoch dan baris `done <run_id>: top1=... map=...` saat selesai.
 
-**Jalankan di `tmux`** supaya sesi SSH yang putus tidak membunuh prosesnya:
+**Kalau pod putus:** ulangi perintah yang **sama persis**. Resume bekerja per file CSV — run yang sudah tercatat di CSV itu dilewati. Mengganti tag `--date` berarti mulai dari nol.
 
-```bash
-tmux new -s scratch
-CVL_MODES=scratch python scripts/run_all.py --date scratch 2>&1 | tee run-scratch.log
-# lepas: Ctrl+B lalu D   ·   sambung lagi: tmux attach -t scratch
-```
+## Memantau progres
 
-Tanpa `tmux`: `CVL_MODES=scratch nohup python -u scripts/run_all.py --date scratch > run-scratch.log 2>&1 &` — flag `-u` wajib, tanpa itu Python menahan output di buffer dan log-nya kosong berjam-jam.
-
-**Pantau progres dan sisa waktu:**
+Dua alat yang saling melengkapi. **`tail`** untuk melihat apa yang sedang dikerjakan detik ini:
 
 ```bash
 tail -f run-scratch.log
-CVL_MODES=scratch python scripts/progress.py --date scratch
 ```
 
-`progress.py` mencetak cakupan yang dihitungnya di baris pertama, jadi ia juga menangkap masalah `.env` di atas. Estimasi sisanya memakai rata-rata run yang sudah selesai — cenderung optimis di awal, karena level besar jauh lebih lambat daripada level kecil.
+**`progress.py`** untuk menjawab "sudah berapa persen, sisa berapa jam":
 
-**Kalau pod putus:** ulangi perintah yang **sama persis**. Resume bekerja per file CSV — run yang sudah tercatat di CSV itu dilewati. Mengganti tag `--date` berarti mulai dari nol.
+```bash
+CVL_MODES=scratch    python scripts/progress.py --date scratch      # server 1
+CVL_MODES=pretrained python scripts/progress.py --date pretrained   # server 2
+```
+
+Contoh keluarannya:
+
+```
+cakupan: archs=['resnet50', 'convnext_tiny', 'efficientnetv2_s', 'vit_small', 'swin_tiny'] levels=[1, 2, 3, 4] modes=['scratch'] seeds=[0, 1, 2, 3, 4] -> 100 run
+sumber : results/results-scratch.csv
+
+=== progres: 37/100 run selesai (37%) ===
+         count   mean
+mode
+scratch     37  742.0
+total waktu terpakai: 7.6 jam
+
+=== sisa ===
+scratch: 63 run x 742s = 13.0 jam
+
+Estimasi sisa waktu: 13.0 jam (~0.5 hari)
+```
+
+Tiga hal yang perlu Anda tahu saat membacanya:
+
+- **Prefiks `CVL_MODES=` wajib.** Tanpa itu `progress.py` menghitung kedua mode dan melaporkan 200 run total, sehingga estimasi sisanya jadi dua kali lipat — separuhnya milik server yang lain.
+- **Baris `cakupan` adalah pemeriksaan `.env` yang sama** seperti di Langkah 5. Kalau daftarnya lebih pendek dari contoh di atas, grid Anda sedang dipersempit.
+- **Estimasinya optimis di awal.** Ia memakai rata-rata run yang sudah selesai, sedangkan grid berjalan dari level kecil ke besar — L4 memakan sekitar tiga kali waktu L1. Angka yang keluar di 10% pertama akan meleset jauh ke bawah; baru mendekati kenyataan setelah setengah jalan.
 
 ## Langkah 6 — Jalankan Studi 2
 
 Hanya di server 2, **setelah** Studi 1 selesai:
 
 ```bash
-python scripts/run_scenarios.py --date finetune
+nohup python -u scripts/run_scenarios.py --date finetune > run-finetune.log 2>&1 &
+echo $! > run-finetune.pid
 ```
+
+Sekitar 2,4 jam. Pantau dengan `tail -f run-finetune.log` — `progress.py` tidak berlaku di sini karena ia menghitung grid arsitektur × level, bukan skenario. Untuk Studi 2, hitung barisnya langsung: `wc -l results/results-finetune.csv` (targetnya 26 baris — 25 run plus header).
 
 Baseline `FT0` disalin dari `results-pretrained.csv`, bukan dijalankan ulang — sah karena berada di mesin, versi library, dan manifest yang sama. Kalau Studi 2 terpaksa pindah mesin, `FT0` harus dijalankan ulang di sana.
 

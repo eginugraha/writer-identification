@@ -10,3 +10,5 @@ cvl-database-cropped-1-1/
 cvl-database-1-1.zip
 results/keep/
 *.bak
+*.log
+*.pid
