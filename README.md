@@ -26,7 +26,7 @@ src/cvl/          # pipeline: data_prep, dataset, models, arcface, metrics, trai
 scripts/          # entry-point: prep_manifests.py, run_all.py, run_scenarios.py,
                   #              make_report.py, make_figures.py, progress.py
 configs/          # default.yaml (hyperparameter)
-tests/            # pytest, 83 test, jalan di CPU tanpa dataset
+tests/            # pytest, 88 test, jalan di CPU tanpa dataset
 cvl-database-1-1/ # DATASET — tidak di-commit, taruh manual
 results/          # manifests, checkpoints, CSV, figures (dibuat otomatis)
 ```
@@ -125,6 +125,16 @@ python scripts/make_report.py --results results/results-pretrained.csv --date pr
 
 Menghasilkan tabel per arsitektur × level plus grafik akurasi-vs-N di `results/figures/`.
 
+**Jangan kutip langsung angka dari perintah ini ke skripsi.** `make_report.py` merata-ratakan run kolaps dan run sehat jadi satu — lihat "Aturan pelaporan hasil" di bawah untuk kriteria kolaps dan cara memisahkannya sebelum melapor.
+
+## Langkah 8 — Rangkai perbandingan Studi 2
+
+Setelah `run_scenarios.py` menulis `results-finetune.csv`, jangan berhenti di situ:
+
+- Baris baseline `FT0` **tidak ada** di `results-finetune.csv` (sengaja dilewati). Ambil dari `results-pretrained.csv`, dengan `run_id` berpola `convnext_tiny_L1_pretrained_s*` — bukan `FT0_s*`.
+- `make_report.py` buta terhadap kolom `scenario`: ia mengelompokkan hanya berdasarkan `(arch, level, mode)`, jadi kalau dijalankan atas `results-finetune.csv` keenam skenario akan tercampur jadi satu baris. Jangan pakai untuk Studi 2.
+- Perbandingan enam skenario dan uji-t berpasangan di §6 spec dilakukan **manual** dari kedua CSV di atas (gabungkan `FT0` dari `results-pretrained.csv` dengan `FT1`–`AUG` dari `results-finetune.csv`, lalu ikuti aturan kolaps yang sama seperti Studi 1).
+
 ---
 
 ## Aturan pelaporan hasil
@@ -142,7 +152,7 @@ Tiga aturan yang mempengaruhi cara angka dibaca — rinciannya di §6 spec.
 ## Verifikasi lokal (tanpa GPU/dataset)
 
 ```bash
-.venv/bin/pytest -q      # 83 test
+.venv/bin/pytest -q      # 88 test
 ```
 
 ## Konfigurasi
