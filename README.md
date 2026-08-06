@@ -118,15 +118,45 @@ Dua hal yang layak diperhatikan dari keluaran itu:
 
 ## Langkah 2 — Taruh dataset
 
+Unduh langsung di pod dari Zenodo — jauh lebih cepat daripada mengunggah dari laptop:
+
+```bash
+wget -O cvl-database-1-1.zip \
+  "https://zenodo.org/records/1492267/files/cvl-database-1-1.zip?download=1"
 ```
-thesis/cvl-database-1-1/
+
+Ekstraksi memakan beberapa menit, jadi jalankan di background:
+
+```bash
+nohup unzip cvl-database-1-1.zip > unzip.log 2>&1 &
+```
+
+Pantau dan pastikan selesai bersih:
+
+```bash
+tail -f unzip.log          # Ctrl+C untuk berhenti memantau
+find cvl-database-1-1 -path "*/lines/*" -name "*.tif" | wc -l   # harus 13473
+```
+
+Struktur akhir yang dibaca pipeline:
+
+```
+cvl-database-1-1/
   trainset/lines/<writer>/<writer>-<page>-<line>.tif
   testset/lines/<writer>/<writer>-<page>-<line>.tif
 ```
 
-Hanya gambar di bawah folder `lines/` yang dibaca (`words/`, `pages/`, `xml/` diabaikan). Upload via `runpodctl`, `scp`, atau `rsync` — atau pakai Network Volume agar persist antar-sesi.
+**Bereskan ruangnya setelah ekstraksi.** Hanya folder `lines/` yang pernah dibaca; `words/`, `pages/`, dan `xml/` sama sekali tidak disentuh dan memakan 3,8 GB dari 5,1 GB dataset. Bersama berkas zip-nya, itu ruang yang lebih baik dipakai checkpoint:
 
-**Unggah `lines/` saja.** Dataset penuh 5,1 GB, tapi folder `lines/` cuma **1,3 GB** (13.473 berkas) — sisanya 3,8 GB berisi `words/`, `pages/`, dan `xml/` yang tidak pernah dibaca pipeline. Menyalin semuanya membuang tiga perempat waktu unggah Anda:
+```bash
+rm cvl-database-1-1.zip
+rm -rf cvl-database-1-1/*/words cvl-database-1-1/*/pages cvl-database-1-1/*/xml
+du -sh cvl-database-1-1        # tersisa ~1,3 GB
+```
+
+> Selama ekstraksi, zip dan hasilnya sama-sama ada di disk — puncaknya sekitar 11 GB. Aman di volume 50 GB, tapi perhitungkan kalau volume Anda lebih kecil.
+
+Alternatif kalau dataset sudah ada di laptop dan Anda lebih suka menyalinnya, ambil `lines/` saja:
 
 ```bash
 rsync -a --include='*/' --include='*/lines/***' --exclude='*' \
