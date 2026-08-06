@@ -93,12 +93,43 @@ def cek_beban(pakai_gpu: bool, batch: int, amp: bool):
         print("  OK (CPU)")
 
 
+def vcpu_efektif():
+    """(jumlah, sumber) — kuota CPU kontainer, bukan jumlah core host.
+
+    `os.cpu_count()` melaporkan core mesin fisik. Di kontainer pod sewaan itu
+    bisa jauh lebih besar daripada yang Anda bayar: host 48 core, kuota 12.
+    Menyetel num_workers dari angka host membuat puluhan proses berebut
+    segelintir CPU — lebih lambat, bukan lebih cepat.
+    """
+    # cgroup v2
+    p = Path("/sys/fs/cgroup/cpu.max")
+    if p.exists():
+        isi = p.read_text().split()
+        if len(isi) == 2 and isi[0] != "max":
+            return max(1, int(int(isi[0]) / int(isi[1]))), "kuota cgroup v2"
+    # cgroup v1
+    q, per = Path("/sys/fs/cgroup/cpu/cpu.cfs_quota_us"), Path("/sys/fs/cgroup/cpu/cpu.cfs_period_us")
+    if q.exists() and per.exists():
+        qv = int(q.read_text().strip())
+        if qv > 0:
+            return max(1, int(qv / int(per.read_text().strip()))), "kuota cgroup v1"
+    # tanpa kuota: pakai affinity mask kalau ada
+    if hasattr(os, "sched_getaffinity"):
+        return len(os.sched_getaffinity(0)), "affinity mask"
+    return os.cpu_count(), "os.cpu_count (core host)"
+
+
 def cek_cpu_dan_shm(num_workers: int, prefetch: int, batch: int):
     print("\n== CPU, RAM, shared memory ==")
-    vcpu = os.cpu_count()
+    vcpu, sumber = vcpu_efektif()
+    host = os.cpu_count()
     saran = max(1, vcpu - 2)
-    print(f"  vCPU terdeteksi: {vcpu} -> saran num_workers = {saran} "
-          f"(sekarang {num_workers})")
+    print(f"  vCPU efektif: {vcpu} (dari {sumber}; core host {host}) "
+          f"-> saran num_workers = {saran} (sekarang {num_workers})")
+    if host and vcpu < host:
+        print(f"  catatan: host punya {host} core tapi kuota kontainer {vcpu}. "
+              f"Pakai angka kuota — menyetel worker dari jumlah host membuat "
+              f"proses berebut CPU.")
     if num_workers != saran:
         print(f"  !! configs/default.yaml menyetel num_workers={num_workers}. "
               f"Beban ini terbatas CPU, bukan GPU — sesuaikan ke {saran}.")
