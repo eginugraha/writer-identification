@@ -1,3 +1,4 @@
+import pytest
 import torch
 from src.cvl.models import build_model, forward_features, count_params
 
@@ -27,6 +28,35 @@ def test_drop_path_default_nol():
     rates = [mod.drop_prob for mod in m.modules()
              if mod.__class__.__name__ == "DropPath"]
     assert not rates or max(rates) == 0.0
+
+
+def test_swin_drop_path_default_sama_dengan_timm_tanpa_kwarg():
+    """convnext_tiny kebal terhadap bug ini karena default timm-nya memang 0.
+
+    swin_tiny berbeda: `SwinTransformer.__init__` default `drop_path_rate=0.1`.
+    Kalau `build_model` selalu meneruskan `drop_path_rate=0.0` secara eksplisit,
+    stochastic depth bawaan Swin mati diam-diam. Bandingkan langsung dengan
+    `timm.create_model` tanpa kwarg `drop_path_rate` sama sekali -- itu acuan
+    perilaku pra-branch yang wajib direproduksi oleh jalur default."""
+    import timm
+    acuan = timm.create_model("swin_tiny_patch4_window7_224",
+                              pretrained=False, num_classes=7)
+    rates_acuan = [mod.drop_prob for mod in acuan.modules()
+                   if mod.__class__.__name__ == "DropPath"]
+
+    m = build_model("swin_tiny", num_classes=7, pretrained=False)
+    rates = [mod.drop_prob for mod in m.modules()
+             if mod.__class__.__name__ == "DropPath"]
+
+    assert rates and max(rates) == pytest.approx(0.1)
+    assert max(rates) == pytest.approx(max(rates_acuan))
+
+
+def test_swin_drop_path_eksplisit_tetap_dihormati():
+    m = build_model("swin_tiny", num_classes=7, pretrained=False, drop_path=0.2)
+    rates = [mod.drop_prob for mod in m.modules()
+             if mod.__class__.__name__ == "DropPath"]
+    assert rates and max(rates) == pytest.approx(0.2)
 
 
 def test_head_arcface_bentuk_logit():
