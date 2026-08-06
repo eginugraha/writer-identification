@@ -1,3 +1,5 @@
+import os
+from contextlib import contextmanager
 from pathlib import Path
 import pandas as pd
 from .train import RunConfig, train_one_run
@@ -11,6 +13,43 @@ from .env_info import env_metadata
 LR_OVERRIDES = {
     ("convnext_tiny", "pretrained"): 1e-4,
 }
+
+def _proses_hidup(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+@contextmanager
+def kunci_eksklusif(results_csv):
+    """Cegah dua proses menulis ke CSV hasil yang sama.
+
+    Menjalankan perintah run dua kali (mudah terjadi: satu baris `nohup ... &`
+    yang tidak sengaja diulang) membuat dua proses menambahkan baris ke CSV
+    dan menulis ke folder checkpoint yang sama tanpa saling tahu. Gejalanya
+    baru terlihat belakangan: header nyasar di tengah berkas, run_id ganda,
+    dan checkpoint yang metriknya berasal dari bobot yang ditulis berebut.
+    """
+    lock = Path(str(results_csv) + ".lock")
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    if lock.exists():
+        isi = lock.read_text().strip()
+        if isi.isdigit() and _proses_hidup(int(isi)):
+            raise SystemExit(
+                f"Sudah ada proses (PID {isi}) yang menulis ke {results_csv}.\n"
+                f"Menjalankan dua proses pada tag --date yang sama merusak CSV "
+                f"dan checkpoint.\n"
+                f"Pantau yang sedang jalan, atau hentikan dengan: kill {isi}\n"
+                f"Kalau yakin proses itu sudah mati, hapus: rm {lock}")
+        print(f"lock basi dari PID {isi} diabaikan (prosesnya sudah tidak ada)")
+    lock.write_text(str(os.getpid()))
+    try:
+        yield
+    finally:
+        lock.unlink(missing_ok=True)
+
 
 def run_id(arch, level, mode, seed) -> str:
     lvl = "full" if level is None else str(level)

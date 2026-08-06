@@ -10,7 +10,7 @@ from src.cvl.config import (
     PRETRAINED_EPOCHS, SCRATCH_EPOCHS, BATCH_SIZE,
     add_date_args, date_suffix,
 )
-from src.cvl.run_experiments import run_grid
+from src.cvl.run_experiments import kunci_eksklusif, run_grid
 
 def parse_args():
     p = argparse.ArgumentParser(description="Jalankan grid eksperimen writer-ID")
@@ -47,10 +47,11 @@ def main():
         for level in ABLATION_LEVELS:
             tag = "full" if level is None else level
             by_seed_level[seed][level] = pd.read_parquet(man_dir / f"seed{seed}_L{tag}.parquet")
-    run_grid(by_seed_level, archs=list(ARCHITECTURES.keys()),
-             levels=ABLATION_LEVELS, modes=MODES, seeds=SEEDS,
-             results_csv=results_csv, ckpt_root=ckpt_root,
-             device=device, hp=hp)
+    with kunci_eksklusif(results_csv):
+        run_grid(by_seed_level, archs=list(ARCHITECTURES.keys()),
+                 levels=ABLATION_LEVELS, modes=MODES, seeds=SEEDS,
+                 results_csv=results_csv, ckpt_root=ckpt_root,
+                 device=device, hp=hp)
 
-if __name__ == "__main__":
-    main()
+    if __name__ == "__main__":
+        main()

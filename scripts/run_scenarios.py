@@ -49,12 +49,13 @@ def main():
     print(f"skenario: {names} | seeds={SEEDS} | arch={ARCH} L{LEVEL} | device={device}")
     print(f"output: {results_csv} | ckpt: {ckpt_root}")
 
-    for seed in SEEDS:
-        m = pd.read_parquet(man_dir / f"seed{seed}_L{LEVEL}.parquet")
-        run_scenario_grid(m, names=names, seeds=[seed], results_csv=results_csv,
-                          ckpt_root=ckpt_root, device=device, hp=hp,
-                          arch=ARCH, level=LEVEL)
+    with kunci_eksklusif(results_csv):
+        for seed in SEEDS:
+            m = pd.read_parquet(man_dir / f"seed{seed}_L{LEVEL}.parquet")
+            run_scenario_grid(m, names=names, seeds=[seed], results_csv=results_csv,
+                              ckpt_root=ckpt_root, device=device, hp=hp,
+                              arch=ARCH, level=LEVEL)
 
 
-if __name__ == "__main__":
-    main()
+    if __name__ == "__main__":
+        main()
