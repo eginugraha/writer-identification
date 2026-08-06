@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from .dataset import LineDataset
+from .dataset import LineDataset, loader_kwargs
 from .models import build_model, forward_features, count_params
 from .metrics import aggregate_by_group, top_k_accuracy, macro_f1, retrieval_map
 
@@ -20,7 +20,14 @@ def rata_rata_jendela(logits, b: int, k: int):
     return torch.softmax(logits, dim=1).reshape(b, k, -1).mean(dim=1)
 
 def evaluate_checkpoint(ckpt_path, manifest, arch, device, batch_size: int = 64,
-                        scenario=None) -> dict:
+                        scenario=None, num_workers: int = 0) -> dict:
+    """Evaluasi checkpoint pada set uji.
+
+    `num_workers` hanya mempercepat pemuatan data; transform evaluasi sepenuhnya
+    deterministik (tanpa augmentasi acak), jadi jumlah worker tidak mengubah
+    hasil sedikit pun — cuma waktu. Default 0 mempertahankan perilaku lama untuk
+    pemanggil yang belum meneruskannya.
+    """
     from .scenarios import Scenario
     sc = scenario or Scenario()
     test = manifest[manifest.split == "test"].reset_index(drop=True)
@@ -30,7 +37,8 @@ def evaluate_checkpoint(ckpt_path, manifest, arch, device, batch_size: int = 64,
     model.eval()
     ds = LineDataset(test, train=False, geometry=sc.geometry, aug=sc.aug,
                      eval_crops=sc.eval_crops)
-    dl = DataLoader(ds, batch_size=batch_size, shuffle=False, num_workers=0)
+    dl = DataLoader(ds, batch_size=batch_size, shuffle=False,
+                    **loader_kwargs({"num_workers": num_workers}, device))
     probs, feats = [], []
     t0, n_img = time.time(), 0
     with torch.no_grad():

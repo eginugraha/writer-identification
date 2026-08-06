@@ -83,13 +83,32 @@ python scripts/prep_manifests.py
 
 > Kalau di Langkah 5 muncul `FileNotFoundError` pada path yang bukan milik mesin ini, artinya `results/manifests/` berisi manifest dari mesin lain (ikut terbawa `rsync`). Jalankan ulang langkah ini — ia menimpa berkas yang ada.
 
-## Langkah 4 — Siapkan server 2
+## Langkah 4 — Siapkan server 2 & setel `num_workers`
 
 Ulangi Langkah 1–3 di pod kedua, tapi pasang dependensinya dari file terkunci:
 
 ```bash
 pip install -r requirements.lock.txt
 ```
+
+**Setel `num_workers` sesuai vCPU pod — ini pengungkit kecepatan terbesar yang Anda punya.** Beban ini terbatas oleh CPU, bukan GPU: ia berjalan pada ~4,8 TFLOPS efektif, jauh di bawah kemampuan kartu mana pun yang layak dipakai. Yang menghabiskan waktu adalah decode TIF, resize ke ~3284×224, dan `RandomAffine` — semuanya di CPU.
+
+```bash
+nproc                                    # jumlah vCPU pod
+# lalu di configs/default.yaml: num_workers = nproc - 2
+```
+
+Nilai bawaannya 8. Pada pod 28 vCPU, membiarkannya di 8 berarti menyia-nyiakan dua pertiga mesin yang Anda sewa. Perkiraan dampaknya pada total Studi 1:
+
+| Konfigurasi | Total | Per server |
+|---|---|---|
+| 8 worker (bawaan) | ~39 j | ~19 j |
+| 26 worker | ~20 j | ~10 j |
+| 26 worker + `persistent_workers` (sudah aktif) | ~14 j | ~7 j |
+
+`persistent_workers` sudah menyala otomatis begitu `num_workers > 0`. Ini penting justru pada pod ber-vCPU banyak: tanpanya PyTorch menyalakan dan mematikan seluruh proses pekerja **dua kali setiap epoch**, dan biaya itu naik seiring jumlah worker — pada level data terkecil ia bisa memakan lebih banyak waktu daripada yang dihemat.
+
+> Angka di tabel itu proyeksi dari model biaya yang dicocokkan ke dua titik data grid lama, bukan hasil pengukuran. Arah dan urutan prioritasnya bisa dipercaya; angka persisnya jangan. Verifikasi dengan membandingkan `train_time_s` run L1 pertama terhadap patokan lama 341 detik (pretrained) / 241 detik (scratch).
 
 ## Langkah 5 — Jalankan Studi 1
 

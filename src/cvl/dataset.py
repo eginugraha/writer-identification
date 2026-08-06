@@ -151,3 +151,25 @@ class LineDataset(Dataset):
         base = ResizeHeight(IMAGE_SIZE)(img.convert("RGB"))
         wins = even_windows(base, IMAGE_SIZE, self.eval_crops)
         return torch.stack([self.crop_tf(w) for w in wins]), label
+
+
+def loader_kwargs(hp: dict, device: str) -> dict:
+    """Argumen DataLoader yang seragam untuk latih dan evaluasi.
+
+    `persistent_workers` penting di sini: tanpa itu PyTorch menyalakan dan
+    mematikan seluruh proses pekerja dua kali tiap epoch (loader latih dan
+    validasi). Pada grid lama biaya tetap itu ~3,8 detik per epoch — 38% waktu
+    tiap epoch di level terkecil, karena dibagi ke sedikit citra. Semakin banyak
+    worker, semakin mahal biaya nyalakan-matikan itu, jadi justru pada pod
+    ber-vCPU banyak ia paling terasa.
+
+    `prefetch_factor` dan `pin_memory` hanya sah bila ada worker / ada GPU.
+    """
+    nw = hp.get("num_workers", 0)
+    kw = {"num_workers": nw}
+    if nw > 0:
+        kw["persistent_workers"] = True
+        kw["prefetch_factor"] = 4
+    if device != "cpu":
+        kw["pin_memory"] = True
+    return kw
