@@ -6,6 +6,7 @@ import torch
 import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.cvl.config import SEEDS, PRETRAINED_EPOCHS, BATCH_SIZE, add_date_args, date_suffix
+from src.cvl.run_experiments import kunci_eksklusif
 from src.cvl.run_scenarios import run_scenario_grid, hp_skenario, cek_manifest
 from src.cvl.scenarios import SCENARIOS
 
@@ -57,5 +58,5 @@ def main():
                               arch=ARCH, level=LEVEL)
 
 
-    if __name__ == "__main__":
-        main()
+if __name__ == "__main__":
+    main()

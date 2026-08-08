@@ -53,5 +53,5 @@ def main():
                  results_csv=results_csv, ckpt_root=ckpt_root,
                  device=device, hp=hp)
 
-    if __name__ == "__main__":
-        main()
+if __name__ == "__main__":
+    main()
