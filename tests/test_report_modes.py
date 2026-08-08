@@ -75,7 +75,8 @@ def test_ringkasan_kolaps_tidak_mengarang_saat_semua_sehat():
 # laporan hanya memuat mode yang ada di CSV
 # --------------------------------------------------------------------------
 
-def _jalankan(tmp_path, monkeypatch, df, tag):
+def _tulis(tmp_path, monkeypatch, df, tag):
+    """Jalankan make_report dan kembalikan berkas markdown yang dihasilkan."""
     monkeypatch.chdir(tmp_path)
     (tmp_path / "results").mkdir()
     csv = tmp_path / "results" / f"results-{tag}.csv"
@@ -83,7 +84,27 @@ def _jalankan(tmp_path, monkeypatch, df, tag):
     monkeypatch.setattr(sys, "argv",
                         ["make_report.py", "--results", str(csv), "--date", tag])
     mr.main()
-    return (tmp_path / "dokumentasi" / f"08-hasil-eksperimen-{tag}.md").read_text()
+    md = sorted((tmp_path / "dokumentasi").glob("*.md"))
+    assert len(md) == 1, [p.name for p in md]
+    return md[0]
+
+
+def _jalankan(tmp_path, monkeypatch, df, tag):
+    return _tulis(tmp_path, monkeypatch, df, tag).read_text()
+
+
+# --------------------------------------------------------------------------
+# penomoran berkas mengikuti urutan bab, bukan satu nomor untuk semua
+# --------------------------------------------------------------------------
+
+def test_laporan_scratch_bernomor_05(tmp_path, monkeypatch):
+    p = _tulis(tmp_path, monkeypatch, _df("scratch", kolaps=[("swin_tiny", 4)]), "scratch")
+    assert p.name == "05-hasil-eksperimen-scratch.md"
+
+
+def test_laporan_pretrained_bernomor_06(tmp_path, monkeypatch):
+    p = _tulis(tmp_path, monkeypatch, _df("pretrained"), "pretrained")
+    assert p.name == "06-hasil-eksperimen-pretrained.md"
 
 
 def test_csv_scratch_tidak_menghasilkan_bagian_pretrained(tmp_path, monkeypatch):

@@ -1,7 +1,7 @@
 # Hasil Eksperimen — Perbandingan Arsitektur Writer-ID CVL
 
 
-_Dibuat 2026-08-08 15:57 dari `results/results-pretrained.csv` (100 run, mode: pretrained)._
+_Dibuat 2026-08-09 00:28 dari `results/results-pretrained.csv` (100 run, mode: pretrained)._
 
 
 ## Mode: pretrained (transfer learning)

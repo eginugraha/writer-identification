@@ -1,7 +1,7 @@
 # Hasil Eksperimen — Perbandingan Arsitektur Writer-ID CVL
 
 
-_Dibuat 2026-08-08 15:56 dari `results/results-scratch.csv` (100 run, mode: scratch)._
+_Dibuat 2026-08-09 00:28 dari `results/results-scratch.csv` (100 run, mode: scratch)._
 
 
 ## Mode: scratch (dari nol) — trainability

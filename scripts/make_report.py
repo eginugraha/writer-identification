@@ -75,12 +75,22 @@ def bagian_scratch(df, fig_dir, acc_png):
 # kosong, bukan error.
 BAGIAN = {"pretrained": bagian_pretrained, "scratch": bagian_scratch}
 
+# Nomor bab di dokumentasi/. Scratch (05) mendahului pretrained (06) karena
+# bab metode memperkenalkan trainability lebih dulu, baru transfer learning.
+# CSV yang memuat kedua mode ditulis sebagai lanjutan bab pretrained.
+NOMOR = {"scratch": "05", "pretrained": "06"}
+NOMOR_GABUNGAN = "06"
+
+
+def nama_laporan(ada, suffix) -> Path:
+    nomor = NOMOR[ada[0]] if len(ada) == 1 else NOMOR_GABUNGAN
+    return Path(f"dokumentasi/{nomor}-hasil-eksperimen{suffix}.md")
+
 
 def main():
     args = parse_args()
     suffix = date_suffix(args.date)
     src_csv = resolve_results_csv(args.results, suffix)
-    out_md = Path(args.out) if args.out else Path(f"dokumentasi/08-hasil-eksperimen{suffix}.md")
 
     df = pd.read_csv(src_csv)
     ada = [m for m in BAGIAN if m in set(df["mode"].astype(str))]
@@ -89,6 +99,7 @@ def main():
             f"{src_csv}: tidak ada mode yang dikenali di kolom `mode` "
             f"(ditemukan: {sorted(set(df['mode'].astype(str)))}; "
             f"diharapkan salah satu dari {sorted(BAGIAN)})")
+    out_md = Path(args.out) if args.out else nama_laporan(ada, suffix)
 
     fig = Path("results/figures"); fig.mkdir(parents=True, exist_ok=True)
     parts = ["# Hasil Eksperimen — Perbandingan Arsitektur Writer-ID CVL\n",
