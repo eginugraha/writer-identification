@@ -1,7 +1,7 @@
 # Hasil Eksperimen — Perbandingan Arsitektur Writer-ID CVL
 
 
-_Dibuat 2026-08-08 15:25 dari `results/results-pretrained.csv` (100 run)._
+_Dibuat 2026-08-08 15:57 dari `results/results-pretrained.csv` (100 run, mode: pretrained)._
 
 
 ## Mode: pretrained (transfer learning)
@@ -66,24 +66,3 @@ Hasil utama. Ablasi ukuran data latih L1–L4.
 
 
 ![acc](../results/figures/acc_vs_n_pretrained-pretrained.png)
-
-
-## Mode: scratch (dari nol) — trainability
-
-
-Dilatih dari inisialisasi acak dengan resep sama (LR warmup=3) untuk SEMUA arsitektur. Dilaporkan hanya pada **L4** (data latih terbanyak, kondisi terbaik untuk scratch); data lebih sedikit hanya memperparah. Kolom **kolaps** = jumlah seed dengan top-1 < 0.05 (prediksi ~1 kelas).
-
-
-### Top-1 per seed @ L4
-
-| arch |  | rerata | kolaps |
-|---|---|---|
-
-
-### Macro-F1 per seed @ L4
-
-| arch |  | rerata | kolaps |
-|---|---|---|
-
-
-> Swin-Tiny (kolaps 3/3) dan ConvNeXt-Tiny (kolaps 2/3) gagal konvergen dari scratch bahkan dengan warmup + data L4, sementara CNN (ResNet, EfficientNet) dan ViT tidak pernah kolaps (0/3). Arsitektur hierarkis modern menuntut pretraining pada skala dataset ini.

@@ -1,46 +1,7 @@
 # Hasil Eksperimen — Perbandingan Arsitektur Writer-ID CVL
 
 
-_Dibuat 2026-08-08 15:25 dari `results/results-scratch.csv` (100 run)._
-
-
-## Mode: pretrained (transfer learning)
-
-
-Hasil utama. Ablasi ukuran data latih L1–L4.
-
-
-### Top-1 (halaman)
-
-| arch |  |
-|---|
-
-
-### Top-5 (halaman)
-
-| arch |  |
-|---|
-
-
-### Macro-F1 (halaman)
-
-| arch |  |
-|---|
-
-
-### mAP (retrieval, baris)
-
-| arch |  |
-|---|
-
-
-### Efisiensi (rata-rata lintas level/seed)
-
-| arch | n_params | throughput_img_s | train_time_s |
-|---|---|---|---|
-
-
-![acc](../results/figures/acc_vs_n_pretrained-scratch.png)
+_Dibuat 2026-08-08 15:56 dari `results/results-scratch.csv` (100 run, mode: scratch)._
 
 
 ## Mode: scratch (dari nol) — trainability
@@ -71,4 +32,8 @@ Dilatih dari inisialisasi acak dengan resep sama (LR warmup=3) untuk SEMUA arsit
 | vit_small | 0.638 | 0.759 | 0.624 | 0.667 | 0.621 | 0.662 | 0/5 |
 
 
-> Swin-Tiny (kolaps 3/3) dan ConvNeXt-Tiny (kolaps 2/3) gagal konvergen dari scratch bahkan dengan warmup + data L4, sementara CNN (ResNet, EfficientNet) dan ViT tidak pernah kolaps (0/3). Arsitektur hierarkis modern menuntut pretraining pada skala dataset ini.
+
+> Kolaps dari scratch di L4 (5 seed, ambang top1_page < 0.05): convnext_tiny 1/5, swin_tiny 4/5. Tidak pernah kolaps (0/5): efficientnetv2_s, resnet50, vit_small. Rata-rata pada baris yang kolaps tidak bermakna — laporkan jumlah kolaps dan rata-rata run sehat secara terpisah.
+
+
+![acc](../results/figures/acc_vs_n_scratch-scratch.png)
