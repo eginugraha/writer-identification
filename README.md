@@ -380,13 +380,28 @@ Dua hal saat membacanya:
 
 ## Langkah 7 — Laporan
 
+Satu perintah per berkas hasil — dijalankan di server yang memilikinya:
+
 ```bash
+# server 2
 python scripts/make_report.py --results results/results-pretrained.csv --date pretrained
+# server 1
+python scripts/make_report.py --results results/results-scratch.csv --date scratch
 ```
 
-Menghasilkan tabel per arsitektur × level plus grafik akurasi-vs-N di `results/figures/`.
+`make_report.py` membaca kolom `mode` dan hanya menulis bagian yang datanya ada. CSV scratch-only menghasilkan laporan scratch saja, dengan figure `acc_vs_n_scratch-scratch.png`; baris terakhirnya memberi tahu bagian mana yang dilewati:
 
-**Jangan kutip langsung angka dari perintah ini ke skripsi.** `make_report.py` merata-ratakan run kolaps dan run sehat jadi satu — lihat "Aturan pelaporan hasil" di bawah untuk kriteria kolaps dan cara memisahkannya sebelum melapor.
+```
+report written to dokumentasi/08-hasil-eksperimen-scratch.md
+figure written to results/figures/acc_vs_n_scratch-scratch.png
+(mode pretrained tidak ada di CSV ini -> bagiannya dilewati)
+```
+
+Kalau Anda menggabungkan kedua CSV jadi satu berkas, laporannya memuat kedua bagian sekaligus — tidak perlu flag tambahan.
+
+**Jangan kutip langsung angka dari tabel Top-1 ke skripsi.** `pivot_markdown` merata-ratakan run kolaps dan run sehat jadi satu, jadi rerata mode scratch di tabel itu mencampur dua populasi yang berbeda. Yang boleh dikutip adalah tabel **per-seed @ L4** dan kolom **kolaps** di bawahnya — lihat "Aturan pelaporan hasil".
+
+Kalimat penutup bagian scratch dibangkitkan dari data, termasuk jumlah seed sebenarnya. Sebelumnya kalimat itu dipaku dari grid 3-seed yang lama, sehingga laporan 5-seed menutup dengan "kolaps 3/3" yang bertentangan dengan tabel di atasnya. Kalau Anda pernah menghasilkan laporan sebelum perbaikan ini, buang dan bangun ulang.
 
 ## Langkah 8 — Rangkai perbandingan Studi 2
 
