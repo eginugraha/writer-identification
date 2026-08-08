@@ -403,6 +403,18 @@ Kalau Anda menggabungkan kedua CSV jadi satu berkas, laporannya memuat kedua bag
 
 Kalimat penutup bagian scratch dibangkitkan dari data, termasuk jumlah seed sebenarnya. Sebelumnya kalimat itu dipaku dari grid 3-seed yang lama, sehingga laporan 5-seed menutup dengan "kolaps 3/3" yang bertentangan dengan tabel di atasnya. Kalau Anda pernah menghasilkan laporan sebelum perbaikan ini, buang dan bangun ulang.
 
+### Grafik tambahan
+
+Dua bar chart untuk bab hasil — leaderboard pretrained dan trainability scratch:
+
+```bash
+python scripts/make_figures.py
+```
+
+Tanpa argumen ia membaca `results-pretrained.csv` dan `results-scratch.csv` sekaligus; pakai `--results PATH` (boleh diulang) untuk sumber lain. Mode yang tidak ada di CSV manapun dilewati dengan pesan, bukan digambar kosong. Jumlah seed pada label dan batas sumbu dihitung dari data, jadi grafiknya ikut benar saat jumlah seed berubah.
+
+**Baca `scratch_trainability.png` dengan hati-hati.** Warna menandai kolaps, tinggi batang menandai rerata — dan keduanya tidak sejalan. ResNet-50 hijau (kolaps 0/5) tapi reratanya 0,486, di bawah ConvNeXt-T yang merah (0,614). Sebabnya ResNet tidak pernah kolaps total tapi sangat tidak stabil antar-seed (0,263–0,782 di L4). "Tidak kolaps" bukan berarti "berhasil dilatih"; sebutkan sebarannya saat mengutip grafik ini.
+
 ## Langkah 8 — Rangkai perbandingan Studi 2
 
 Setelah `run_scenarios.py` menulis `results-finetune-swin.csv`, jangan berhenti di situ:
