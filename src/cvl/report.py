@@ -58,6 +58,45 @@ def scratch_trainability_markdown(df, level=4, metric="top1_page", collapse_thre
     return "\n".join(lines)
 
 
+def hitung_kolaps(df, level=4, metric="top1_page", collapse_thresh=0.05):
+    """(daftar (arch, n_kolaps, n_seed), n_seed) untuk mode scratch di satu level."""
+    s = df[(df["mode"] == "scratch") & (df["level"].astype(str) == str(level))]
+    seeds = sorted(s["seed"].unique())
+    hasil = []
+    for a in sorted(s["arch"].unique()):
+        vals = s[s.arch == a][metric].astype(float)
+        hasil.append((a, int((vals < collapse_thresh).sum()), len(seeds)))
+    return hasil, len(seeds)
+
+
+def ringkasan_kolaps(df, level=4, metric="top1_page", collapse_thresh=0.05) -> str:
+    """Kalimat penutup bagian scratch, dibangkitkan dari data.
+
+    Versi sebelumnya memaku teks hasil grid 3-seed ("kolaps 3/3"), sehingga
+    laporan 5-seed menutup dengan angka yang bertentangan dengan tabel tepat
+    di atasnya. Kalimat yang tampak rapi tapi salah lebih berbahaya daripada
+    tabel yang jelas kosong, karena tidak ada yang memeriksanya ulang.
+    """
+    hasil, n_seed = hitung_kolaps(df, level, metric, collapse_thresh)
+    if not hasil:
+        return (f"> Tidak ada run scratch di L{level} pada CSV ini, jadi "
+                "stabilitas tidak bisa dinilai.")
+    kolaps = [(a, n, t) for a, n, t in hasil if n > 0]
+    aman = [a for a, n, _ in hasil if n == 0]
+    if not kolaps:
+        return (f"> Tidak ada arsitektur yang kolaps di L{level} "
+                f"({n_seed} seed, semua 0/{n_seed}): {', '.join(aman)}. "
+                f"Ambang kolaps: {metric} < {collapse_thresh}.")
+    frasa = ", ".join(f"{a} {n}/{t}" for a, n, t in kolaps)
+    teks = (f"> Kolaps dari scratch di L{level} ({n_seed} seed, ambang "
+            f"{metric} < {collapse_thresh}): {frasa}.")
+    if aman:
+        teks += f" Tidak pernah kolaps (0/{n_seed}): {', '.join(aman)}."
+    teks += (" Rata-rata pada baris yang kolaps tidak bermakna — laporkan "
+             "jumlah kolaps dan rata-rata run sehat secara terpisah.")
+    return teks
+
+
 def efficiency_markdown(df, mode: str) -> str:
     s = df[df["mode"] == mode]
     cols = [c for c in ("n_params", "throughput_img_s", "train_time_s") if c in s.columns]
