@@ -8,12 +8,8 @@ from pathlib import Path
 from .env_info import env_metadata
 from .evaluate import evaluate_checkpoint
 from .run_experiments import already_done, _append_row, LR_OVERRIDES
-from .scenarios import SCENARIOS
+from .scenarios import SCENARIOS, scenario_run_id
 from .train import RunConfig, train_one_run
-
-
-def scenario_run_id(name: str, seed: int) -> str:
-    return f"{name}_s{seed}"
 
 
 def hp_skenario(hp: dict, arch: str = "convnext_tiny") -> dict:
@@ -48,7 +44,7 @@ def run_scenario_grid(manifest, names, seeds, results_csv, ckpt_root, device, hp
             continue
         sc = SCENARIOS[name]
         for seed in seeds:
-            rid = scenario_run_id(name, seed)
+            rid = scenario_run_id(name, seed, arch=arch, level=level)
             if already_done(results_csv, rid):
                 print(f"skip {rid}"); continue
             rc = RunConfig(arch=arch, level=level, mode="pretrained", seed=seed,

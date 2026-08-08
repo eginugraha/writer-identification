@@ -6,16 +6,16 @@ Desain lengkap: [`docs/superpowers/specs/2026-08-05-grid-5seed-dan-finetune-conv
 
 ## Rencana eksperimen
 
-| | Studi 1 — Grid utama | Studi 2 — Fine-tuning ConvNeXt |
+| | Studi 1 — Grid utama | Studi 2 — Fine-tuning |
 |---|---|---|
-| **Isi** | 5 arsitektur × 4 level × 2 mode × 5 seed | 6 skenario × 5 seed, ConvNeXt-Tiny di L1 |
+| **Isi** | 5 arsitektur × 4 level × 2 mode × 5 seed | 6 skenario × 5 seed, Swin-Tiny di L1 |
 | **Jumlah run** | 200 | 25 baru (baseline diambil dari Studi 1) |
-| **Perkiraan** | ±41 jam GPU | ±2,4 jam GPU |
-| **Dijalankan** | 2 server paralel | server 2, setelah Studi 1 selesai |
+| **Perkiraan** | ±41 jam GPU | ±5 jam GPU |
+| **Dijalankan** | 2 server paralel | server 2, setelah pretrained selesai |
 
 Enam skenario Studi 2 — masing-masing mengubah **satu** mekanisme saja: `FT0` baseline · `FT1` geometri input · `FT2` drop_path + label smoothing · `FT3` freeze parsial + LLRD · `FT4` head ArcFace · `AUG` augmentasi kuat.
 
-Hasil dipisah jadi tiga berkas: `results-scratch.csv`, `results-pretrained.csv`, `results-finetune.csv`.
+Hasil dipisah jadi tiga berkas: `results-scratch.csv`, `results-pretrained.csv`, `results-finetune-swin.csv`.
 
 ## Struktur
 
@@ -325,16 +325,58 @@ Tiga hal yang perlu Anda tahu saat membacanya:
 
 ## Langkah 6 — Jalankan Studi 2
 
-Hanya di server 2, **setelah** Studi 1 selesai:
+Hanya di server 2, setelah bagian **pretrained** Studi 1 selesai di server itu. Tidak perlu menunggu mode scratch di server 1: Studi 2 tidak membaca `results-scratch.csv` sama sekali, jadi menunggu hanya membuat GPU menganggur.
+
+Grid utama menempatkan Swin-Tiny di posisi teratas pada keempat level, jadi Studi 2 dijalankan di sana:
 
 ```bash
-nohup python -u scripts/run_scenarios.py --date finetune > run-finetune.log 2>&1 &
+nohup python -u scripts/run_scenarios.py --arch swin_tiny --date finetune-swin \
+  > run-finetune.log 2>&1 &
 echo $! > run-finetune.pid
 ```
 
-Sekitar 2,4 jam. Pantau dengan `tail -f run-finetune.log` — `progress.py` tidak berlaku di sini karena ia menghitung grid arsitektur × level, bukan skenario. Untuk Studi 2, hitung barisnya langsung: `wc -l results/results-finetune.csv` (targetnya 26 baris — 25 run plus header).
+`--arch` **wajib disebut** dan hanya menerima arsitektur yang punya peta lapisan di `LAYER_MAP` (`src/cvl/finetune.py`), saat ini `convnext_tiny` dan `swin_tiny`. Dua batasan itu disengaja: FT3 memakai freeze + LLRD yang perlu tahu nama modul tiap keluarga arsitektur, dan flag yang terlupa berarti berjam-jam GPU di arsitektur yang salah. `--level` tersedia dan defaultnya 1.
+
+**Perkiraan ±5 jam.** Dasarnya `train_time_s` baseline FT0 di `results-pretrained.csv` (`swin_tiny_L1_pretrained_s*`): rata-rata 711 detik per run, sebaran 570–823. Dikalikan 25 run = 4,9 jam, ditambah ~11 menit untuk evaluasi FT1 yang memakai 9 jendela atas 2.490 baris uji di 5 seed. Angka ini mengasumsikan tiap skenario sama mahalnya dengan baseline — asumsi yang tidak persis benar (FT3 lebih murah karena stem + 2 stage beku; AUG sedikit lebih mahal di sisi CPU), tapi keduanya berlawanan arah sehingga cenderung saling meniadakan. Rentang wajarnya 4,5–6 jam.
+
+Baris pertama log mengonfirmasi setelannya:
+
+```
+skenario: ['FT1', 'FT2', 'FT3', 'FT4', 'AUG'] | seeds=[0, 1, 2, 3, 4] | arch=swin_tiny L1 | lr=0.0003 | device=cuda
+baseline FT0: ambil dari results-pretrained.csv, pola swin_tiny_L1_pretrained_s*
+```
+
+`lr=0.0003` benar untuk Swin — `LR_OVERRIDES` hanya menurunkan LR ConvNeXt ke 1e-4, dan grid utama melatih Swin di 3e-4. Kalau Anda menjalankan `--arch convnext_tiny`, angkanya harus `lr=0.0001`.
 
 Baseline `FT0` disalin dari `results-pretrained.csv`, bukan dijalankan ulang — sah karena berada di mesin, versi library, dan manifest yang sama. Kalau Studi 2 terpaksa pindah mesin, `FT0` harus dijalankan ulang di sana.
+
+`run_id` Studi 2 memuat arsitektur dan level (`swin_tiny_L1_FT1_s0`), mengikuti pola grid utama. Dua arsitektur karena itu bisa menulis ke CSV yang sama tanpa saling melewati — tapi tetap pakai `--date` berbeda supaya folder checkpoint-nya terpisah.
+
+### Memantau Studi 2
+
+> **`progress.py` tidak berlaku di sini, dan tidak akan memberi tahu Anda soal itu.** Ia membangun daftar `run_id` yang diharapkan dari `{arch}_L{level}_{mode}_s{seed}` atas seluruh grid (`scripts/progress.py:22-31`). `run_id` Studi 2 menaruh nama skenario di posisi mode, jadi tidak satu pun cocok — laporannya berbunyi `0/200 run selesai (0%)` meski 25 run sudah beres. Bukan error, hanya salah.
+
+```bash
+tail -f run-finetune.log                       # jalannya run demi run
+ps -p $(cat run-finetune.pid)                  # masih hidup?
+wc -l results/results-finetune-swin.csv        # target 26 (25 run + header)
+```
+
+Ringkasan per skenario — lebih berguna daripada `wc -l` karena langsung memperlihatkan `top1_page` tiap skenario terhadap baseline FT0 (0,8084) tanpa menunggu semuanya selesai:
+
+```bash
+python -c "
+import pandas as pd
+d = pd.read_csv('results/results-finetune-swin.csv')
+print(f'{len(d)}/25 run selesai ({100*len(d)/25:.0f}%) | terpakai {d.train_time_s.sum()/3600:.1f} jam | sisa ~{(25-len(d))*d.train_time_s.mean()/3600:.1f} jam')
+print(d.groupby('scenario').agg(n=('run_id','size'), top1=('top1_page','mean'), detik=('train_time_s','mean')).round(3))
+"
+```
+
+Dua hal saat membacanya:
+
+- **Estimasi sisanya bias ke bawah di awal.** Urutan eksekusinya seed-di-luar (seed 0 → FT1..AUG, lalu seed 1), jadi rata-rata dari beberapa run pertama didominasi skenario yang kebetulan murah. FT3 paling terasa: `patch_embed` + dua stage awal beku membuatnya jauh lebih cepat dari yang lain.
+- **`top1` per skenario baru bisa dibandingkan setelah kelima seed-nya lengkap.** Sebaran antar-seed di L1 sekitar ±0,005–0,011, jadi rata-rata dari 1–2 seed belum berarti apa-apa.
 
 ## Langkah 7 — Laporan
 
@@ -348,11 +390,11 @@ Menghasilkan tabel per arsitektur × level plus grafik akurasi-vs-N di `results/
 
 ## Langkah 8 — Rangkai perbandingan Studi 2
 
-Setelah `run_scenarios.py` menulis `results-finetune.csv`, jangan berhenti di situ:
+Setelah `run_scenarios.py` menulis `results-finetune-swin.csv`, jangan berhenti di situ:
 
-- Baris baseline `FT0` **tidak ada** di `results-finetune.csv` (sengaja dilewati). Ambil dari `results-pretrained.csv`, dengan `run_id` berpola `convnext_tiny_L1_pretrained_s*` — bukan `FT0_s*`.
-- `make_report.py` buta terhadap kolom `scenario`: ia mengelompokkan hanya berdasarkan `(arch, level, mode)`, jadi kalau dijalankan atas `results-finetune.csv` keenam skenario akan tercampur jadi satu baris. Jangan pakai untuk Studi 2.
-- Perbandingan enam skenario dan uji-t berpasangan di §6 spec dilakukan **manual** dari kedua CSV di atas (gabungkan `FT0` dari `results-pretrained.csv` dengan `FT1`–`AUG` dari `results-finetune.csv`, lalu ikuti aturan kolaps yang sama seperti Studi 1).
+- Baris baseline `FT0` **tidak ada** di `results-finetune-swin.csv` (sengaja dilewati). Ambil dari `results-pretrained.csv`, dengan `run_id` berpola `swin_tiny_L1_pretrained_s*` — sesuaikan dengan `--arch` yang Anda pakai.
+- `make_report.py` buta terhadap kolom `scenario`: ia mengelompokkan hanya berdasarkan `(arch, level, mode)`, jadi kalau dijalankan atas `results-finetune-swin.csv` keenam skenario akan tercampur jadi satu baris. Jangan pakai untuk Studi 2.
+- Perbandingan enam skenario dan uji-t berpasangan di §6 spec dilakukan **manual** dari kedua CSV di atas (gabungkan `FT0` dari `results-pretrained.csv` dengan `FT1`–`AUG` dari `results-finetune-swin.csv`, lalu ikuti aturan kolaps yang sama seperti Studi 1).
 
 ---
 

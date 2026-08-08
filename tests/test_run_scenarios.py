@@ -8,8 +8,8 @@ from src.cvl.run_scenarios import (
 
 
 def test_scenario_run_id():
-    assert scenario_run_id("FT1", 3) == "FT1_s3"
-    assert scenario_run_id("AUG", 0) == "AUG_s0"
+    assert scenario_run_id("FT1", 3, arch="convnext_tiny", level=1) == "convnext_tiny_L1_FT1_s3"
+    assert scenario_run_id("AUG", 0, arch="swin_tiny", level=1) == "swin_tiny_L1_AUG_s0"
 
 
 def test_hp_skenario_menerapkan_override_lr():
@@ -48,7 +48,7 @@ def test_run_scenario_grid_dan_resume(tiny_lines, tmp_path):
     d = pd.read_csv(csv)
     assert len(d) == 1
     assert d.iloc[0]["scenario"] == "FT2"
-    assert d.iloc[0]["run_id"] == "FT2_s0"
+    assert d.iloc[0]["run_id"] == "convnext_tiny_L2_FT2_s0"
     assert d.iloc[0]["gpu_name"] == "cpu"
     # jalankan lagi -> resume, tidak menambah baris
     run_scenario_grid(m, names=["FT2"], seeds=[0], results_csv=csv,
