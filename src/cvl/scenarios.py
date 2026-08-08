@@ -32,3 +32,14 @@ SCENARIOS: dict[str, Scenario] = {
     # augmentasi kuat
     "AUG": Scenario(aug="strong"),
 }
+
+
+def scenario_run_id(name: str, seed: int, arch: str, level) -> str:
+    """Identitas satu run Studi 2.
+
+    Mengikuti pola grid utama ({arch}_L{level}_{mode}_s{seed}) dengan nama
+    skenario di posisi mode. Arsitektur wajib ikut: tanpa itu dua arsitektur
+    yang menulis ke CSV yang sama membuat `already_done` melewati run kedua
+    sebagai "sudah selesai", dan folder checkpoint-nya saling menimpa.
+    """
+    return f"{arch}_L{level}_{name}_s{seed}"

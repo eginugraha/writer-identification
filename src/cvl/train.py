@@ -53,9 +53,10 @@ def train_one_run(manifest, rc: RunConfig, out_dir, device, hp: dict,
                         pretrained=(rc.mode == "pretrained"),
                         drop_path=sc.drop_path, head=sc.head).to(device)
     if sc.freeze_strategy is not None:
-        freeze_layers(model, sc.freeze_strategy)
+        freeze_layers(model, sc.freeze_strategy, arch=rc.arch)
         opt = torch.optim.AdamW(
-            build_param_groups(model, sc.freeze_strategy, base_lr=rc.lr),
+            build_param_groups(model, sc.freeze_strategy, base_lr=rc.lr,
+                               arch=rc.arch),
             weight_decay=rc.weight_decay)
     else:
         opt = torch.optim.AdamW(model.parameters(), lr=rc.lr,
