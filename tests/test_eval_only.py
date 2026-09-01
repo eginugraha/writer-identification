@@ -238,3 +238,76 @@ def test_cli_arch_tidak_ikut_filter_env():
             break
     else:
         raise AssertionError("--arch tidak ditemukan")
+
+
+# --------------------------------------------------------------------------
+# run_id harus memuat sumber bobotnya
+# --------------------------------------------------------------------------
+
+def test_run_id_eval_only_membedakan_sumber():
+    """Satu protokol uji bisa dijalankan atas beberapa bobot berbeda: 9-crop
+    atas FT0 dan 9-crop atas AUG adalah dua run yang berbeda. Tanpa sumber di
+    run_id keduanya bertabrakan, dan `already_done` melewati yang kedua sebagai
+    "sudah selesai" — persis kegagalan diam-diam yang sudah dihindari untuk
+    arsitektur."""
+    from src.cvl.scenarios import scenario_run_id
+    dari_ft0 = scenario_run_id("FT5", 0, arch="swin_tiny", level=1)
+    dari_aug = scenario_run_id("FT5", 0, arch="swin_tiny", level=1, source="AUG")
+    assert dari_ft0 != dari_aug
+
+
+def test_run_id_eval_only_tidak_berubah_untuk_sumber_grid():
+    """Sumber "pretrained" adalah bobot baseline dan tetap implisit: baris FT5
+    yang sudah tertulis di results-evalonly-swin.csv memakai bentuk polos ini,
+    dan mengubahnya akan memutus data yang sudah dikumpulkan."""
+    from src.cvl.scenarios import scenario_run_id
+    assert scenario_run_id("FT5", 0, arch="swin_tiny", level=1) == "swin_tiny_L1_FT5_s0"
+    assert (scenario_run_id("FT5", 0, arch="swin_tiny", level=1, source="pretrained")
+            == "swin_tiny_L1_FT5_s0")
+
+
+def test_run_id_eval_only_menyebut_sumber():
+    from src.cvl.scenarios import scenario_run_id
+    assert (scenario_run_id("FT6", 3, arch="swin_tiny", level=1, source="FT1")
+            == "swin_tiny_L1_FT6-from-FT1_s3")
+
+
+def test_run_eval_only_mencatat_sumber_di_run_id(tiny_lines, tmp_path):
+    from src.cvl.run_scenarios import run_eval_only
+    m = _manifest(tiny_lines)
+    src = tmp_path / "ck"
+    _ckpt_palsu(m, src / f"{ARCH}_L2_AUG_s0" / "best.pt")
+    csv = tmp_path / "results-evalonly.csv"
+    run_eval_only(m, name="FT5", seeds=[0], results_csv=csv, src_ckpt_root=src,
+                  device="cpu", hp=HP, arch=ARCH, level=2, source="AUG")
+    row = pd.read_csv(csv).iloc[0]
+    assert row["run_id"] == f"{ARCH}_L2_FT5-from-AUG_s0"
+    assert row["source_run_id"] == f"{ARCH}_L2_AUG_s0"
+
+
+# --------------------------------------------------------------------------
+# skenario eval-only tambahan
+# --------------------------------------------------------------------------
+
+def test_ft6_adalah_sel_keempat_tabel_2x2():
+    """Latih linewindow, uji satu potongan tengah — kebalikan FT5. Melengkapi
+    2x2-nya: menjawab apakah sliding-window training menolong tanpa dibantu
+    perata-rataan sembilan jendela."""
+    from src.cvl.scenarios import SCENARIOS
+    assert SCENARIOS["FT6"].geometry == "linewindow"
+    assert SCENARIOS["FT6"].eval_crops == 1
+
+
+def test_ft7_cocok_dengan_checkpoint_arcface():
+    """Menilai ulang bobot FT4 dengan protokol 9-crop butuh kepala yang sama
+    dengan checkpoint-nya. Kalau head-nya linear, load_state_dict gagal —
+    bukan diam-diam salah, tapi tetap membuat eksperimennya mustahil."""
+    from src.cvl.scenarios import SCENARIOS
+    assert SCENARIOS["FT7"].head == SCENARIOS["FT4"].head == "arcface"
+    assert SCENARIOS["FT7"].eval_crops == 9
+
+
+def test_skenario_eval_only_tidak_ikut_dilatih():
+    from src.cvl.scenarios import EVAL_ONLY, skenario_latih
+    assert {"FT5", "FT6", "FT7"} <= EVAL_ONLY
+    assert not set(skenario_latih()) & EVAL_ONLY

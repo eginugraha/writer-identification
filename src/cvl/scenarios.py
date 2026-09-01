@@ -33,6 +33,12 @@ SCENARIOS: dict[str, Scenario] = {
     # uji, training tidak disentuh. Memisahkan efek test-time ensemble dari
     # efek sliding-window training, yang di FT1 tercampur jadi satu angka.
     "FT5": Scenario(eval_crops=9),
+    # sel keempat tabel 2x2: bobot FT1 (latih linewindow) diuji satu potongan
+    # tengah. Menjawab apakah sliding-window training menolong sendirian.
+    "FT6": Scenario(geometry="linewindow", eval_crops=1),
+    # protokol uji 9-crop untuk checkpoint berkepala ArcFace (FT4). Kepalanya
+    # harus sama dengan checkpoint-nya, kalau tidak load_state_dict gagal.
+    "FT7": Scenario(head="arcface", eval_crops=9),
     # augmentasi kuat
     "AUG": Scenario(aug="strong"),
 }
@@ -41,7 +47,7 @@ SCENARIOS: dict[str, Scenario] = {
 # Skenario yang tidak melatih apa pun: hanya mengganti protokol uji di atas
 # checkpoint yang sudah ada, lewat scripts/eval_only.py. Kalau ikut jalur latih,
 # bobotnya jadi model baru — bukan lagi bobot FT0 yang justru jadi intinya.
-EVAL_ONLY = frozenset({"FT5"})
+EVAL_ONLY = frozenset({"FT5", "FT6", "FT7"})
 
 
 def skenario_latih() -> list[str]:
@@ -54,12 +60,20 @@ def skenario_latih() -> list[str]:
     return [n for n in SCENARIOS if n != "FT0" and n not in EVAL_ONLY]
 
 
-def scenario_run_id(name: str, seed: int, arch: str, level) -> str:
+def scenario_run_id(name: str, seed: int, arch: str, level,
+                    source: str = "pretrained") -> str:
     """Identitas satu run Studi 2.
 
     Mengikuti pola grid utama ({arch}_L{level}_{mode}_s{seed}) dengan nama
     skenario di posisi mode. Arsitektur wajib ikut: tanpa itu dua arsitektur
     yang menulis ke CSV yang sama membuat `already_done` melewati run kedua
     sebagai "sudah selesai", dan folder checkpoint-nya saling menimpa.
+
+    `source` menutup lubang yang sama untuk run eval-only: satu protokol uji
+    bisa dijalankan atas beberapa bobot berbeda ("9-crop atas FT0" dan "9-crop
+    atas AUG"), dan tanpa sumber di run_id keduanya bertabrakan. Sumber
+    "pretrained" tetap implisit supaya baris FT5 yang sudah tertulis di
+    results-evalonly-swin.csv tidak berubah bentuk.
     """
-    return f"{arch}_L{level}_{name}_s{seed}"
+    slot = name if source == "pretrained" else f"{name}-from-{source}"
+    return f"{arch}_L{level}_{slot}_s{seed}"

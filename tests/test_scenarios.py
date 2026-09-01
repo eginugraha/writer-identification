@@ -21,7 +21,8 @@ def test_scenario_beku():
 
 
 def test_registry_lengkap():
-    assert set(SCENARIOS) == {"FT0", "FT1", "FT2", "FT3", "FT4", "FT5", "AUG"}
+    assert set(SCENARIOS) == {"FT0", "FT1", "FT2", "FT3", "FT4", "FT5", "FT6",
+                              "FT7", "AUG"}
     assert SCENARIOS["FT0"] == Scenario()
 
 
@@ -42,6 +43,11 @@ def test_tiap_skenario_mengubah_satu_mekanisme():
     assert diff_count["FT3"] == {"freeze_strategy"}
     assert diff_count["FT4"] == {"head"}
     assert diff_count["FT5"] == {"eval_crops"}
+    assert diff_count["FT6"] == {"geometry"}
+    # FT7 dikecualikan dari hitungan satu-sumbu: ia bukan mekanisme latih,
+    # melainkan protokol uji FT5 yang kepalanya disamakan dengan checkpoint
+    # FT4 supaya bobotnya bisa dimuat sama sekali.
+    assert diff_count["FT7"] == {"head", "eval_crops"}
     assert diff_count["AUG"] == {"aug"}
 
 
