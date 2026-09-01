@@ -13,6 +13,8 @@ ablasi data terbatas dan dua studi terpisah.
 | 06 | [Hasil pretrained](06-hasil-eksperimen-pretrained.md) | Tabel hasil mode pretrained | **dibangkitkan** |
 | 07 | [Hasil fine-tuning](07-hasil-eksperimen-finetune.md) | Studi 2, termasuk pembelahan FT1 lewat FT5 | tulisan tangan |
 | 08 | [Hipotesis dan kesimpulan](08-hipotesis-dan-kesimpulan.md) | Sintesis ketiga eksperimen | tulisan tangan |
+| C | [Kode program inti](lampiran-c-kode-program.md) | Kode yang melaksanakan metode, dengan penjelasan | tulisan tangan |
+| D | [Laporan revisi FT1](lampiran-d-laporan-revisi-ft1.md) | Jawaban atas masukan pembimbing, berdiri sendiri | tulisan tangan |
 
 **Berkas 05 dan 06 dibangkitkan ulang oleh `scripts/make_report.py`** — jangan
 disunting manual, suntingan Anda akan hilang saat laporan dibuat ulang:
