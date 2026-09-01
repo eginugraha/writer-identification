@@ -32,11 +32,12 @@ Berkas lain ditulis tangan dan aman disunting.
 | Studi 1 — scratch | 100/100 | selesai |
 | Studi 1 — pretrained | 100/100 | selesai |
 | Studi 2 — fine-tuning Swin-Tiny | 25/25 | selesai |
-| Studi 2 — FT5 (eval-only, tanpa latih) | 5/5 | selesai |
+| Studi 2 — eval-only (FT5, FT6, AUG@9, FT4@9) | 20/20 | selesai |
 
 Semuanya lengkap 5 seed, jadi seluruh angka di berkas 05–08 sudah final.
-FT5 dijalankan belakangan (2026-09-01) tanpa pelatihan: ia mengevaluasi ulang
-checkpoint FT0 dengan protokol uji FT1.
+Run eval-only dijalankan belakangan (2026-09-01) tanpa pelatihan sama sekali:
+semuanya menilai ulang checkpoint yang sudah ada dengan protokol uji berbeda,
+untuk memisahkan efek protokol uji dari efek geometri latih.
 Pekerjaan lanjutan yang belum dijalankan didaftar di
 [08-hipotesis-dan-kesimpulan.md](08-hipotesis-dan-kesimpulan.md#yang-belum-dikerjakan).
 

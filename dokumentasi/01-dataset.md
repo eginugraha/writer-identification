@@ -101,6 +101,9 @@ mengukur dampaknya, dan hasilnya ada di
 
 Yang mengejutkan datang dari `FT5`: **dua pertiga kerugian itu bisa ditebus
 tanpa melatih ulang apa pun**, cukup dengan berhenti menilai satu penulis dari
-satu potongan tengah saat inferensi (+9,42 dari +14,22 poin). Jadi 92,5% yang
-terbuang bukan hanya soal apa yang dilihat model saat *latih*, tapi terutama
-soal apa yang dilihatnya saat *uji*.
+satu potongan tengah saat inferensi (+9,42 dari +14,22 poin). `FT6` melengkapi
+gambarannya dari sisi sebaliknya: melatih dengan jendela acak tanpa mengubah
+protokol uji memberi +12,01 poin. Keduanya tidak menjumlah — mereka menutup
+kekurangan yang sama dari ujung berbeda. Jadi 92,5% yang terbuang adalah soal
+apa yang dilihat model saat *latih* **dan** saat *uji*, dan menutup salah
+satunya saja sudah memulihkan sebagian besarnya.

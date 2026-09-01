@@ -4,10 +4,14 @@
 `results/results-finetune-swin.csv`. Baseline `FT0` diambil dari
 `results-pretrained.csv`, pola `swin_tiny_L1_pretrained_s*`.
 
-**Ditambah 5 run FT5** per 2026-09-01 (`results/results-evalonly-swin.csv`).
-FT5 tidak melatih apa pun: ia mengevaluasi ulang checkpoint FT0 yang sama dengan
-protokol uji FT1 (sembilan jendela dirata-rata), untuk membelah kenaikan FT1
-antara sisi latih dan sisi uji. Dijalankan lewat `scripts/eval_only.py`.
+**Ditambah 20 run eval-only** per 2026-09-01 (`results/results-evalonly-swin.csv`),
+tanpa satu pun pelatihan — semuanya menilai ulang checkpoint yang sudah ada
+dengan protokol uji berbeda, lewat `scripts/eval_only.py`:
+
+- **FT5** — bobot FT0, diuji 9 jendela;
+- **FT6** — bobot FT1, diuji satu potongan tengah (sel keempat 2×2);
+- **AUG@9** dan **FT4@9** — bobot AUG dan FT4, diuji 9 jendela, supaya
+  peringkatnya bisa dibaca di bawah protokol uji yang sama dengan FT1.
 
 Semuanya Swin-Tiny di L1, mode pretrained, LR 3e-4 (kecuali FT3 yang menurunkan
 ke 1e-4 sebagai bagian mekanismenya; FT5 tidak punya LR karena tidak melatih).
@@ -28,6 +32,11 @@ Rata-rata 5 seed ± simpangan baku:
 | FT2 regularisasi | 0,8078 ±0,016 | 0,9416 ±0,012 | 0,7564 ±0,018 | 0,2823 ±0,009 | 0,4042 ±0,011 |
 | FT3 freeze + LLRD | 0,7506 ±0,031 | 0,9143 ±0,015 | 0,6933 ±0,036 | 0,2463 ±0,008 | 0,3496 ±0,014 |
 
+Tiga kondisi eval-only lainnya (FT6, AUG@9, FT4@9) ada di
+[Membelah FT1](#membelah-ft1-tabel-2x2-penuh) — semuanya memakai bobot yang sudah
+ada di tabel ini, jadi menaruhnya di sini akan terbaca seolah mekanisme latih
+yang berbeda.
+
 **Tidak ada satu pun run yang kolaps** (`top1_page < 0,05`) di seluruh Studi 2,
 jadi semua rata-rata di atas sah dibaca apa adanya — berbeda dari mode scratch.
 
@@ -47,75 +56,109 @@ Selisih dalam poin persentase:
 FT5 tidak masuk tabel itu karena ia bukan mekanisme latih yang sejajar dengan
 yang lain — ia memakai bobot FT0. Pembelahannya ada di tabel berikut.
 
-### Membelah FT1: FT0 → FT5 → FT1
+### Membelah FT1: tabel 2×2 penuh
 
-Ketiganya berbagi kelima seed yang sama, jadi seluruh perbandingan di bawah
-berpasangan per seed. Selisih dalam poin persentase; `*` = |t| > 2,776.
+Keempat sel berbagi kelima seed yang sama, jadi seluruh perbandingan berpasangan
+per seed. `top1_page`, rata-rata 5 seed:
+
+| | uji 1 potongan | uji 9 jendela |
+|---|---|---|
+| **latih `center`** | FT0 0,8084 | FT5 **0,9026** |
+| **latih `linewindow`** | FT6 **0,9286** | FT1 0,9506 |
+
+Rata-rata lengkapnya:
+
+| Kondisi | top1_page | top5_page | macro_f1 | map_line | top1_retr |
+|---|---|---|---|---|---|
+| FT5 (bobot FT0, uji 9) | 0,9026 ±0,018 | 0,9747 ±0,006 | 0,8741 ±0,020 | 0,8011 ±0,008 | 0,9313 ±0,005 |
+| FT6 (bobot FT1, uji 1) | 0,9286 ±0,022 | 0,9708 ±0,002 | 0,9071 ±0,029 | 0,4362 ±0,020 | 0,5680 ±0,029 |
+
+Selisih berpasangan, poin persentase; `*` = |t| > 2,776 (df=4):
 
 | Perbandingan | top1_page | top5_page | macro_f1 | map_line | top1_retr |
 |---|---|---|---|---|---|
-| **FT5 − FT0** (efek protokol uji) | **+9,42** t=11,20 * | +5,32 t=15,93 * | **+11,51** t=11,17 * | +51,83 t=310,32 * | +53,10 t=149,38 * |
-| **FT1 − FT5** (efek geometri latih) | **+4,81** t=22,31 * | +0,06 t=1,00 | **+6,12** t=16,16 * | +5,11 t=19,90 * | +2,92 t=21,93 * |
+| FT5 − FT0 (uji saja) | +9,42 t=11,20 * | +5,32 t=15,93 * | +11,51 t=11,17 * | +51,83 t=310,32 * | +53,10 t=149,38 * |
+| FT6 − FT0 (latih saja) | **+12,01** t=11,82 * | +4,94 t=15,68 * | **+14,81** t=10,65 * | +15,34 t=23,58 * | +16,77 t=16,56 * |
+| FT1 − FT6 (tambah uji) | +2,21 t=5,31 * | +0,45 t=2,75 | +2,81 t=5,27 * | +41,60 t=103,62 * | +39,24 t=37,30 * |
+| FT1 − FT5 (tambah latih) | +4,81 t=22,31 * | +0,06 t=1,00 | +6,12 t=16,16 * | +5,11 t=19,90 * | +2,92 t=21,93 * |
 | FT1 − FT0 (total) | +14,22 t=15,17 * | +5,39 t=19,04 * | +17,63 t=13,40 * | +56,93 t=210,18 * | +56,02 t=208,30 * |
-| **porsi yang dijelaskan 9-crop saja** | **66,2%** | 98,8% | **65,3%** | 91,0% | 94,8% |
+| porsi — 9-crop saja | 66,2% | 98,8% | 65,3% | **91,0%** | **94,8%** |
+| porsi — latih linewindow saja | **84,5%** | 91,6% | **84,0%** | 26,9% | 29,9% |
+| interaksi | −7,21 | −4,87 | −8,69 | −10,23 | −13,86 |
 
-Dihitung ulang kapan saja dengan `python scripts/banding_protokol.py --arch swin_tiny`.
+### Peringkat di bawah protokol uji yang sama
+
+Tabel signifikansi di atas menilai AUG dan FT4 dengan `eval_crops=1`, sementara
+protokol uji sendirian bernilai +9,42 poin. Keduanya karena itu dinilai ulang
+dengan 9 jendela dan dibandingkan terhadap **FT5** — bukan FT0 — karena hanya
+pasangan itu yang protokol ujinya identik dan hanya bobotnya yang berbeda.
+
+| Perbandingan | top1_page | macro_f1 | map_line | top1_retr |
+|---|---|---|---|---|
+| AUG@9 − FT5 | −1,23 t=−2,22 | −1,35 t=−2,31 | **+3,44** t=25,58 * | +1,47 t=9,49 * |
+| FT4@9 − FT5 | +0,45 t=0,31 | +0,54 t=0,30 | **+5,18** t=4,48 * | +1,65 t=3,07 * |
+| FT1 − FT5 | **+4,81** t=22,31 * | **+6,12** t=16,16 * | +5,11 t=19,90 * | +2,92 t=21,93 * |
+
+Seluruh tabel di bagian ini dihitung ulang dengan
+`python scripts/banding_protokol.py --arch swin_tiny`.
 
 ## Bacaan
 
-### FT1 menang telak — tapi dua pertiganya milik protokol uji
+### FT1 menang telak — dan kedua komponennya saling menggantikan
 
 +14,2 poin `top1_page`, dan `map_line` naik tiga kali lipat dari 0,283 ke 0,852.
-Nilai t-nya besar di semua metrik: efeknya jauh melampaui variasi antar-seed.
 Yang tidak bisa dibaca dari angka itu sendirian adalah **dari mana** kenaikannya
-datang, karena FT1 mengubah geometri latih dan protokol uji sekaligus. FT5
-menjawabnya.
+datang, karena FT1 mengubah geometri latih dan protokol uji sekaligus. Tabel 2×2
+menjawabnya, dan jawabannya bukan pembagian.
 
-**Dua pertiga kenaikan tidak butuh pelatihan sama sekali.** FT5 memakai
-checkpoint FT0 apa adanya — nol parameter berubah — dan hanya merata-ratakan
-sembilan jendela saat uji. Hasilnya +9,42 poin `top1_page` (t = 11,20), yaitu
-**66,2%** dari total +14,22. Pada `macro_f1` porsinya serupa, 65,3%.
+**Masing-masing komponen, sendirian, sudah memulihkan sebagian besar
+kenaikannya.** 9-crop saja (FT5) memberi +9,42 poin — 66,2% dari total — tanpa
+mengubah satu pun parameter. Sliding-window training saja (FT6) memberi +12,01
+poin, yakni **84,5%**. Jumlah keduanya 150,7%, yang jelas mustahil: keduanya
+**tumpang tindih**, dengan suku interaksi −7,21 poin.
 
-**Sepertiga sisanya nyata dan bukan sisa yang bisa diabaikan.** FT1 − FT5 =
-+4,81 poin dengan **t = 22,31** — nilai t yang justru lebih tinggi daripada
-bagian ensemble-nya, karena selisih itu sangat konsisten di kelima seed. Sebagai
-pembanding, +4,81 poin lebih besar daripada efek AUG (+2,34) maupun FT4 (+1,82),
-dua skenario yang tetap dilaporkan sebagai temuan. Jadi sliding-window training
-tetap menyumbang, hanya saja bukan pemeran utamanya.
+Bacaan yang paling jujur adalah dua arah sekaligus:
 
-**Pada `macro_f1`, porsi latihnya lebih besar** (+6,12; t = 16,16) daripada di
-`top1_page`. Macro-F1 membobot semua penulis sama rata, jadi ini menunjukkan
-sliding-window training paling menolong penulis-penulis yang sulit — persis
-bagian yang tidak tertolong hanya dengan merata-ratakan sembilan jendela.
+- 9-crop menambah **+9,42** pada model yang dilatih `center`, tapi hanya
+  **+2,21** pada model yang sudah dilatih `linewindow`;
+- sliding-window training menambah **+12,01** kalau diuji satu potongan, tapi
+  hanya **+4,81** kalau protokol 9-crop sudah dipakai.
 
-**Pada `top5_page`, sisi latih tidak menyumbang apa pun.** FT1 − FT5 = +0,06
-poin, t = 1,00, satu-satunya sel yang gagal uji-t di seluruh pembelahan ini:
-98,8% kenaikan `top5_page` sudah dijelaskan 9-crop saja. Begitu boleh menebak
-lima kali, yang tersisa hanyalah efek perata-rataan.
+Keduanya menyerang keterbatasan yang sama — 92,5% baris yang tidak terlihat —
+dari ujung yang berbeda. Begitu satu dipasang, yang kedua jauh berkurang
+gunanya. Karena itu pertanyaan "mana yang jadi kunci" tidak punya jawaban
+tunggal: **keduanya kunci, dan satu saja sudah hampir cukup.** Kalau harus
+memilih satu, sisi latih sedikit lebih kuat di tingkat halaman (84,5% berbanding
+66,2%) — tapi sisi uji tidak menuntut pelatihan sama sekali.
 
-**Koreksi terhadap edisi sebelumnya.** Sebelum FT5 ada, dokumen ini menyatakan
-lompatan `top1_retrieval` 0,400 → 0,961 membuktikan yang membaik adalah
-*representasinya*, bukan sekadar batas keputusan classifier. **Itu keliru.** FT5
-memakai bobot FT0 yang identik dan sudah mencapai 0,9313 — **94,8%** dari
-lompatan itu — sementara `map_line` 91,0%. Representasi per jendela tidak
-membaik sedikit pun; yang membaik adalah kestabilan rata-rata sembilan jendela
-dibanding satu potongan tengah. Kecurigaan "sebagian kenaikan `map_line`
-bersifat mekanis" yang dicatat di edisi lama ternyata bukan sebagian, melainkan
-hampir seluruhnya. Metrik retrieval karena itu **tidak boleh** dipakai sebagai
-bukti perbaikan representasi selama protokol ujinya ikut berubah.
+Keempat sisi 2×2-nya tetap signifikan pada `top1_page`, termasuk yang terkecil
+(+2,21; t = 5,31). Jadi tidak ada komponen yang bisa dibuang tanpa kerugian yang
+terukur; yang berubah hanyalah besarannya.
+
+**Pada metrik tingkat baris, pembagiannya justru terbalik dan ekstrem.** Untuk
+`map_line`, 9-crop saja menjelaskan **91,0%** kenaikan sementara sliding-window
+training saja hanya **26,9%**; untuk `top1_retrieval` 94,8% berbanding 29,9%.
+Metrik retrieval bekerja pada fitur per baris, dan merata-ratakan sembilan
+jendela membuat fitur itu jauh lebih stabil terlepas dari bobotnya.
+
+**Koreksi berlapis terhadap edisi sebelumnya.** Edisi awal menyatakan lompatan
+`top1_retrieval` 0,400 → 0,961 membuktikan yang membaik adalah *representasinya*.
+Itu terlalu kuat: 94,8% lompatan itu didapat FT5 dengan bobot FT0 yang identik.
+Tapi edisi berikutnya — yang ditulis sebelum FT6 ada — menyimpulkan sebaliknya
+bahwa representasinya "tidak membaik sedikit pun", dan **itu terlalu kuat ke
+arah yang lain.** FT6 memakai protokol uji yang sama dengan FT0 dan tetap
+menaikkan `map_line` +15,34 poin (t = 23,58): sliding-window training memang
+memperbaiki representasi, hanya saja sumbangannya jauh lebih kecil daripada yang
+tersirat dari angka mentahnya. Yang tetap berlaku: **metrik retrieval tidak bisa
+dipakai sebagai bukti perbaikan representasi kalau protokol ujinya ikut
+berubah** — protokolnya harus dipegang tetap dulu, seperti pada perbandingan
+FT6 − FT0 dan AUG@9 − FT5.
 
 **Satu efek samping yang layak dicatat.** Simpangan baku antar-seed melonjak
-begitu protokol 9-crop dipakai: 0,005 di FT0 menjadi 0,018 di FT5, dan FT1
-mewarisinya (0,019). Kenaikan variansi itu datang dari protokol evaluasinya,
-bukan dari cara melatihnya.
-
-**Yang masih belum diketahui.** Angka +4,81 adalah efek geometri latih *dengan
-syarat* protokol uji 9-crop sudah dipakai. Apakah sliding-window training sendirian
-— dilatih `linewindow` tapi diuji satu potongan tengah — juga menolong, belum
-diuji; itu sel keempat dari tabel 2×2 di
-[04-skenario-fine-tuning.md](04-skenario-fine-tuning.md#ft5--protokol-uji-ft1-tanpa-perubahan-latih),
-dan bisa dijalankan tanpa latih ulang dengan
-`scripts/eval_only.py --source FT1`.
+begitu protokol 9-crop dipakai: 0,005 di FT0 menjadi 0,018 di FT5. Tapi FT6 juga
+0,022 dengan protokol uji lama, jadi kenaikan variansi itu datang dari **kedua**
+perubahan, bukan hanya dari protokol evaluasinya — dugaan yang saya tulis
+sebelum FT6 ada.
 
 ### FT3 justru merugikan — dan itu informatif
 
@@ -159,6 +202,19 @@ perata-rataan: AUG dan FT4 memakai `eval_crops=1` persis seperti FT0, jadi
 protokol ujinya identik dan yang berubah hanya bobotnya. Di kedua skenario itu
 representasinya memang membaik.
 
+**Dan polanya bertahan setelah keduanya dinilai ulang dengan 9-crop.** Terhadap
+FT5 — protokol identik, hanya bobot yang berbeda — AUG memberi `map_line`
+**+3,44** (t = 25,58) dan FT4 **+5,18** (t = 4,48), keduanya signifikan, sementara
+`top1_page` keduanya gagal uji-t (−1,23 dan +0,45). Jadi kesimpulan "memperbaiki
+representasi tingkat baris tanpa memperbaiki keputusan tingkat halaman" sekarang
+berlaku di **dua protokol uji yang berbeda**, bukan hanya di satu — jauh lebih
+kokoh daripada sebelumnya.
+
+Yang berubah hanyalah arah selisih `top1_page` AUG, dari +2,34 (protokol lama)
+menjadi −1,23 (protokol 9-crop). Keduanya gagal uji-t, jadi yang benar untuk
+dikatakan bukan "AUG jadi merugikan", melainkan: **di kedua protokol, AUG tidak
+bisa dibedakan dari baseline pada akurasi halaman.**
+
 ## Biaya
 
 | Skenario | detik/run | epoch |
@@ -169,10 +225,10 @@ representasinya memang membaik.
 | FT4 | 735 | 36,4 |
 | FT3 | 735 | 36,2 |
 | *FT0* | *711* | *37,0* |
-| **FT5** | **0** | **—** |
+| **FT5 / FT6 / AUG@9 / FT4@9** | **0** | **—** |
 
-FT5 adalah baris yang paling penting di tabel ini: **+9,42 poin dengan nol detik
-pelatihan.** Yang dibayar hanyalah evaluasi sembilan kali lebih mahal — hitungan
+Baris terakhir yang paling penting di tabel ini: **+9,42 poin dengan nol detik
+pelatihan** (FT5). Yang dibayar hanyalah evaluasi sembilan kali lebih mahal — hitungan
 menit untuk 2.490 baris uji, sekali saja. Untuk siapa pun yang sudah punya model
 terlatih, ini perbaikan termurah yang tersedia di seluruh Studi 2.
 

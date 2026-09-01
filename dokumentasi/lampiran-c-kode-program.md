@@ -748,20 +748,29 @@ def retrieval_map(features, labels):
 
 ## scenarios.py — Registry skenario Studi 2
 
-Enam konfigurasi Studi 2 didefinisikan sebagai data, satu baris per skenario,
-dan masing-masing mengubah **tepat satu mekanisme** dibanding dasarnya. Karena
-itu selisih skornya dapat langsung dibaca sebagai efek mekanisme tersebut.
+Konfigurasi Studi 2 didefinisikan sebagai data, satu baris per skenario. Skenario
+latih masing-masing mengubah **tepat satu mekanisme** dibanding dasarnya,
+sehingga selisih skornya dapat langsung dibaca sebagai efek mekanisme tersebut.
 `Scenario()` tanpa argumen adalah pipeline apa adanya, sehingga FT0 tidak perlu
 dijalankan ulang dan barisnya disalin dari hasil Studi 1.
+
+Tiga skenario terakhir tidak melatih apa pun: ia menilai ulang checkpoint yang
+sudah ada dengan protokol uji berbeda. `EVAL_ONLY` menjaganya keluar dari daftar
+skenario yang dilatih — tanpa itu, default "semua kecuali FT0" pada runner latih
+akan melatihnya dan menghasilkan bobot baru, yang justru menghapus seluruh
+maknanya.
 
 | Skenario | Yang diubah | Mekanisme yang diuji |
 |---|---|---|
 | FT0 | (tidak ada) | dasar pembanding |
-| FT1 | `geometry="linewindow"`, `eval_crops=9` | cakupan baris |
+| FT1 | `geometry="linewindow"`, `eval_crops=9` | cakupan baris (latih + uji) |
 | FT2 | `drop_path=0.2`, `label_smoothing=0.1` | regularisasi bawaan arsitektur |
 | FT3 | `freeze_strategy="S3"` | pembekuan lapisan + LLRD |
 | FT4 | `head="arcface"` | *head* bermargin sudut |
 | AUG | `aug="strong"` | augmentasi kuat |
+| FT5 | `eval_crops=9` | protokol uji saja, bobot FT0 |
+| FT6 | `geometry="linewindow"` | geometri latih saja, uji 1 potongan |
+| FT7 | `head="arcface"`, `eval_crops=9` | protokol uji untuk checkpoint ArcFace |
 
 ```python
 """Registry skenario Studi 2 (fine-tuning ConvNeXt-Tiny di L1).
@@ -795,20 +804,54 @@ SCENARIOS: dict[str, Scenario] = {
     "FT3": Scenario(freeze_strategy="S3"),
     # head margin sudut
     "FT4": Scenario(head="arcface"),
+    # protokol uji FT1 di atas pipeline latih FT0: 9 jendela dirata-rata saat
+    # uji, training tidak disentuh. Memisahkan efek test-time ensemble dari
+    # efek sliding-window training, yang di FT1 tercampur jadi satu angka.
+    "FT5": Scenario(eval_crops=9),
+    # sel keempat tabel 2x2: bobot FT1 (latih linewindow) diuji satu potongan
+    # tengah. Menjawab apakah sliding-window training menolong sendirian.
+    "FT6": Scenario(geometry="linewindow", eval_crops=1),
+    # protokol uji 9-crop untuk checkpoint berkepala ArcFace (FT4). Kepalanya
+    # harus sama dengan checkpoint-nya, kalau tidak load_state_dict gagal.
+    "FT7": Scenario(head="arcface", eval_crops=9),
     # augmentasi kuat
     "AUG": Scenario(aug="strong"),
 }
 
 
-def scenario_run_id(name: str, seed: int, arch: str, level) -> str:
+# Skenario yang tidak melatih apa pun: hanya mengganti protokol uji di atas
+# checkpoint yang sudah ada, lewat scripts/eval_only.py. Kalau ikut jalur latih,
+# bobotnya jadi model baru — bukan lagi bobot FT0 yang justru jadi intinya.
+EVAL_ONLY = frozenset({"FT5", "FT6", "FT7"})
+
+
+def skenario_latih() -> list[str]:
+    """Skenario yang perlu dilatih: semua kecuali FT0 dan yang eval-only.
+
+    Satu sumber kebenaran untuk runner dan CLI. Filter `!= "FT0"` yang ditulis
+    ulang di scripts/ akan diam-diam ikut melatih setiap skenario eval-only yang
+    ditambahkan kemudian.
+    """
+    return [n for n in SCENARIOS if n != "FT0" and n not in EVAL_ONLY]
+
+
+def scenario_run_id(name: str, seed: int, arch: str, level,
+                    source: str = "pretrained") -> str:
     """Identitas satu run Studi 2.
 
     Mengikuti pola grid utama ({arch}_L{level}_{mode}_s{seed}) dengan nama
     skenario di posisi mode. Arsitektur wajib ikut: tanpa itu dua arsitektur
     yang menulis ke CSV yang sama membuat `already_done` melewati run kedua
     sebagai "sudah selesai", dan folder checkpoint-nya saling menimpa.
+
+    `source` menutup lubang yang sama untuk run eval-only: satu protokol uji
+    bisa dijalankan atas beberapa bobot berbeda ("9-crop atas FT0" dan "9-crop
+    atas AUG"), dan tanpa sumber di run_id keduanya bertabrakan. Sumber
+    "pretrained" tetap implisit supaya baris FT5 yang sudah tertulis di
+    results-evalonly-swin.csv tidak berubah bentuk.
     """
-    return f"{arch}_L{level}_{name}_s{seed}"
+    slot = name if source == "pretrained" else f"{name}-from-{source}"
+    return f"{arch}_L{level}_{slot}_s{seed}"
 ```
 
 ## finetune.py — Strategi pembekuan lapisan dan LLRD
