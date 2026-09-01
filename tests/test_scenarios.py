@@ -21,7 +21,7 @@ def test_scenario_beku():
 
 
 def test_registry_lengkap():
-    assert set(SCENARIOS) == {"FT0", "FT1", "FT2", "FT3", "FT4", "AUG"}
+    assert set(SCENARIOS) == {"FT0", "FT1", "FT2", "FT3", "FT4", "FT5", "AUG"}
     assert SCENARIOS["FT0"] == Scenario()
 
 
@@ -41,6 +41,7 @@ def test_tiap_skenario_mengubah_satu_mekanisme():
     assert diff_count["FT2"] == {"drop_path", "label_smoothing"}
     assert diff_count["FT3"] == {"freeze_strategy"}
     assert diff_count["FT4"] == {"head"}
+    assert diff_count["FT5"] == {"eval_crops"}
     assert diff_count["AUG"] == {"aug"}
 
 
@@ -52,6 +53,19 @@ def test_nilai_skenario():
     assert SCENARIOS["FT3"].freeze_strategy == "S3"
     assert SCENARIOS["FT4"].head == "arcface"
     assert SCENARIOS["AUG"].aug == "strong"
+
+
+def test_ft5_memisahkan_sisi_uji_ft1():
+    """FT5 = FT1 tanpa perubahan sisi latih.
+
+    FT1 mengubah geometri latih *dan* protokol uji sekaligus, jadi +14,2 poin
+    top1_page-nya tidak bisa dibagi antara keduanya. FT5 memakai protokol uji
+    FT1 (9 jendela dirata-rata) di atas pipeline latih FT0 apa adanya, sehingga
+    selisih FT5-FT0 adalah efek murni test-time ensemble dan FT1-FT5 sisanya.
+    """
+    assert SCENARIOS["FT5"].eval_crops == SCENARIOS["FT1"].eval_crops
+    assert SCENARIOS["FT5"].geometry == SCENARIOS["FT0"].geometry
+    assert dataclasses.replace(SCENARIOS["FT5"], eval_crops=1) == SCENARIOS["FT0"]
 
 
 def test_freeze_strategy_dikenal_finetune():
