@@ -24,6 +24,7 @@ salah satunya.
 | `FT2` | `drop_path`, `label_smoothing` | 0,2 dan 0,1 |
 | `FT3` | `freeze_strategy` | `S3` |
 | `FT4` | `head` | `arcface` |
+| `FT5` | `eval_crops` | 9 |
 | `AUG` | `aug` | `strong` |
 
 `FT2` mengubah dua medan sekaligus, tapi keduanya adalah satu mekanisme yang
@@ -53,6 +54,35 @@ dijelaskan di [01-dataset.md](01-dataset.md#model-hanya-melihat-75-dari-tiap-bar
 > saat latih *dan* protokol evaluasi. Kenaikannya karena itu tidak bisa
 > dikaitkan sepenuhnya ke salah satunya tanpa eksperimen tambahan. Ini harus
 > disebut eksplisit saat melaporkan hasilnya.
+
+### FT5 — protokol uji FT1 tanpa perubahan latih
+
+FT1 mengubah dua hal sekaligus, jadi kenaikannya tidak bisa dibagi. FT5
+memisahkannya dari sisi uji: **bobot FT0 apa adanya, dievaluasi dengan sembilan
+jendela yang dirata-rata**. `geometry` tetap `center`, tidak ada pelatihan sama
+sekali.
+
+Cara ujinya identik dengan FT1 — `LineDataset` mengabaikan `geometry` begitu
+`eval_crops > 1` (`src/cvl/dataset.py`), jadi kedua skenario melihat sembilan
+jendela yang sama persis; yang berbeda hanya bobotnya. Dengan begitu:
+
+| | uji 1 potongan | uji 9 jendela |
+|---|---|---|
+| latih `center` | FT0 | **FT5** |
+| latih `linewindow` | (belum dijalankan) | FT1 |
+
+- **FT5 − FT0** = efek murni *test-time ensemble*;
+- **FT1 − FT5** = sisanya, milik *sliding-window training*.
+
+Kalau FT5 sudah mendekati FT1, klaimnya harus berubah jadi "ensemble multi-crop
+saat inferensi adalah kuncinya, bukan strategi latih". Kalau FT5 hanya sedikit
+di atas FT0, klaim cakupan baris justru menguat karena penjelasan tandingannya
+sudah diuji dan gugur.
+
+`map_line` adalah metrik yang paling tidak cocok untuk memutuskan itu:
+retrieval atas rata-rata sembilan jendela memang lebih stabil daripada atas satu
+potongan, jadi sebagian kenaikannya mekanis. Putuskan dari `top1_page` dan
+`macro_f1_page`.
 
 ### FT2 — regularisasi
 
@@ -115,6 +145,29 @@ Hasil ke `results/results-finetune-swin.csv`, checkpoint ke
 
 `--arch` wajib disebut dan dibatasi ke arsitektur yang punya peta lapisan di
 `LAYER_MAP`, karena FT3 membutuhkannya.
+
+**FT5 tidak lewat runner itu** — ia tidak melatih apa pun, jadi jalurnya
+terpisah:
+
+```bash
+python scripts/eval_only.py --arch swin_tiny \
+    --src-ckpt-root results/checkpoints-pretrained --date evalonly-swin
+```
+
+Checkpoint sumbernya adalah `swin_tiny_L1_pretrained_s*/best.pt` dari grid
+utama, dan `--src-ckpt-root` wajib disebut karena grid itu punya `--date`
+sendiri; menebaknya akan diam-diam menunjuk folder yang salah. Hasilnya ditulis
+ke CSV terpisah (`results-evalonly-swin.csv`) dengan kolom `source_run_id` yang
+menunjuk run sumbernya, tanpa kolom latih — menulis ke
+`results-finetune-swin.csv` ditolak, karena `_append_row` hanya menulis header
+saat berkasnya belum ada sehingga kolomnya akan bergeser tanpa peringatan.
+
+> **Prasyarat yang gampang terlewat.** `results/checkpoints*/` ada di
+> `.gitignore` dan pod GPU bisa sudah dihapus. Kalau `best.pt` grid utama sudah
+> tidak ada, FT5 tetap butuh latih ulang FT0 lima seed lebih dulu — dan angka
+> FT0 hasil latih ulang itu wajib dicocokkan dengan `results-pretrained.csv`
+> sebelum dipakai. Runner-nya berhenti dengan menyebut path yang hilang, bukan
+> menulis baris kosong.
 
 LR yang dipakai adalah **3e-4** — sama dengan yang dipakai grid utama untuk Swin,
 sehingga sebanding dengan baseline FT0. (Kalau Studi 2 dijalankan di ConvNeXt,

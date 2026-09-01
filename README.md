@@ -13,7 +13,7 @@ Desain lengkap: [`docs/superpowers/specs/2026-08-05-grid-5seed-dan-finetune-conv
 | **Perkiraan** | ±41 jam GPU | ±5 jam GPU |
 | **Dijalankan** | 2 server paralel | server 2, setelah pretrained selesai |
 
-Enam skenario Studi 2 — masing-masing mengubah **satu** mekanisme saja: `FT0` baseline · `FT1` geometri input · `FT2` drop_path + label smoothing · `FT3` freeze parsial + LLRD · `FT4` head ArcFace · `AUG` augmentasi kuat.
+Tujuh skenario Studi 2 — masing-masing mengubah **satu** mekanisme saja: `FT0` baseline · `FT1` geometri input · `FT2` drop_path + label smoothing · `FT3` freeze parsial + LLRD · `FT4` head ArcFace · `FT5` 9-crop saat uji saja (tanpa latih) · `AUG` augmentasi kuat.
 
 Hasil dipisah jadi tiga berkas: `results-scratch.csv`, `results-pretrained.csv`, `results-finetune-swin.csv`.
 
@@ -377,6 +377,23 @@ Dua hal saat membacanya:
 
 - **Estimasi sisanya bias ke bawah di awal.** Urutan eksekusinya seed-di-luar (seed 0 → FT1..AUG, lalu seed 1), jadi rata-rata dari beberapa run pertama didominasi skenario yang kebetulan murah. FT3 paling terasa: `patch_embed` + dua stage awal beku membuatnya jauh lebih cepat dari yang lain.
 - **`top1` per skenario baru bisa dibandingkan setelah kelima seed-nya lengkap.** Sebaran antar-seed di L1 sekitar ±0,005–0,011, jadi rata-rata dari 1–2 seed belum berarti apa-apa.
+
+### Langkah 6b — FT5: 9-crop saat uji, tanpa latih ulang
+
+FT1 mengubah geometri latih **dan** protokol uji sekaligus, jadi +14,2 poin `top1_page`-nya tidak bisa dibagi antara keduanya. FT5 memisahkannya: bobot FT0 apa adanya, dievaluasi dengan sembilan jendela yang dirata-rata — protokol uji yang sama persis dengan FT1, tanpa satu langkah latih pun.
+
+```bash
+python scripts/eval_only.py --arch swin_tiny \
+  --src-ckpt-root results/checkpoints-pretrained --date evalonly-swin
+```
+
+**±11 menit**, bukan jam: yang dikerjakan hanya evaluasi 9 jendela atas 2.490 baris uji di 5 seed — biaya yang sama dengan porsi evaluasi FT1 pada perkiraan Langkah 6.
+
+`--src-ckpt-root` **wajib disebut** dan menunjuk folder checkpoint **grid utama**, bukan folder Studi 2. Grid itu punya `--date` sendiri, jadi menebaknya dari `--date` di sini akan diam-diam menunjuk folder yang salah. Hasilnya ditulis ke CSV terpisah dengan kolom `source_run_id`; menulis ke `results-finetune-swin.csv` ditolak karena kolomnya beda dan `_append_row` hanya menulis header saat berkasnya belum ada.
+
+> **Prasyarat yang mudah hilang.** `results/checkpoints*/` ada di `.gitignore` dan tidak ikut ke mana-mana. Kalau pod sudah dihapus atau folder itu sudah dibersihkan, `swin_tiny_L1_pretrained_s*/best.pt` tidak ada lagi dan FT5 mustahil dijalankan apa adanya — runner-nya berhenti menyebut path yang hilang. Jalan keluarnya: latih ulang FT0 lima seed di mesin dengan versi torch/timm yang sama seperti tercatat di `results-pretrained.csv`, lalu **cocokkan dulu** angka FT0 hasil latih ulang dengan yang lama sebelum FT5 dipakai sebagai pembanding.
+
+`--source` mengisi posisi mode pada `run_id` sumber, jadi `--source FT1 --src-ckpt-root results/checkpoints-finetune-swin` mengukur kebalikannya: bobot FT1, tapi diuji satu potongan. Itu melengkapi tabel 2×2-nya (lihat [dokumentasi/04](dokumentasi/04-skenario-fine-tuning.md)), meski bukan bagian dari permintaan awal.
 
 ## Langkah 7 — Laporan
 

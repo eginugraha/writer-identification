@@ -9,7 +9,7 @@ from src.cvl.config import SEEDS, PRETRAINED_EPOCHS, BATCH_SIZE, add_date_args, 
 from src.cvl.finetune import LAYER_MAP
 from src.cvl.run_experiments import kunci_eksklusif
 from src.cvl.run_scenarios import run_scenario_grid, hp_skenario, cek_manifest
-from src.cvl.scenarios import SCENARIOS
+from src.cvl.scenarios import SCENARIOS, skenario_latih
 
 
 def parse_args():
@@ -25,7 +25,8 @@ def parse_args():
     p.add_argument("--level", type=int, default=1, metavar="N",
                    help="level ablasi, halaman latih per penulis (default: 1)")
     p.add_argument("--scenarios", default=None, metavar="NAMA",
-                   help="daftar skenario dipisah koma (default: semua kecuali FT0)")
+                   help="daftar skenario dipisah koma (default: semua yang "
+                        "perlu dilatih — tanpa FT0 dan tanpa skenario eval-only)")
     p.add_argument("--results", default=None, metavar="PATH")
     p.add_argument("--ckpt-root", default=None, metavar="DIR")
     return p.parse_args()
@@ -38,7 +39,7 @@ def main():
     ckpt_root = Path(args.ckpt_root) if args.ckpt_root else Path(f"results/checkpoints{suffix}")
 
     names = ([s.strip() for s in args.scenarios.split(",")] if args.scenarios
-             else [n for n in SCENARIOS if n != "FT0"])
+             else skenario_latih())
     unknown = [n for n in names if n not in SCENARIOS]
     if unknown:
         raise SystemExit(f"skenario tidak dikenal: {unknown}")
