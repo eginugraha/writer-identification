@@ -78,3 +78,18 @@ def porsi(ft0: float, ft5: float, ft1: float) -> float:
     if abs(penyebut) < 1e-9:
         return float("nan")
     return float((ft5 - ft0) / penyebut)
+
+
+def interaksi(ft0: float, ft5: float, ft6: float, ft1: float) -> float:
+    """Suku interaksi 2x2, dalam poin persentase.
+
+    (FT1 − FT6) − (FT5 − FT0): berapa besar tambahan protokol 9-crop menyusut
+    ketika modelnya sudah dilatih sliding-window. Nol berarti kedua komponen
+    aditif — masing-masing menyumbang hal yang berbeda. Negatif berarti keduanya
+    tumpang tindih: mereka memperbaiki keterbatasan yang sama dari ujung yang
+    berbeda, jadi memasang yang kedua jauh lebih sedikit gunanya.
+
+    Simetris terhadap arah pembacaan: (FT1 − FT5) − (FT6 − FT0) menghasilkan
+    angka yang sama.
+    """
+    return float(((ft1 - ft6) - (ft5 - ft0)) * 100)
