@@ -31,6 +31,17 @@ def test_baca_kondisi_menyaring_arch_level_slot_dan_mengindeks_seed(tmp_path):
     assert d.loc[0, "top1_page"] == 0.80
 
 
+def test_baca_kondisi_menerima_slot_bersumber(tmp_path):
+    """run_id eval-only menyebut sumber bobotnya ("FT5-from-AUG"), jadi slot
+    bisa memuat tanda hubung. Polanya harus tetap cocok persis, bukan longgar."""
+    p = _csv(tmp_path, "r.csv",
+             ["swin_tiny_L1_FT5-from-AUG_s0", "swin_tiny_L1_FT5_s0"],
+             [0.90, 0.85])
+    d = baca_kondisi(p, arch="swin_tiny", level=1, slot="FT5-from-AUG")
+    assert list(d.index) == [0]
+    assert d.loc[0, "top1_page"] == 0.90
+
+
 def test_baca_kondisi_gagal_kalau_tidak_ada_yang_cocok(tmp_path):
     p = _csv(tmp_path, "r.csv", ["swin_tiny_L1_pretrained_s0"], [0.80])
     with pytest.raises(SystemExit, match="FT5"):

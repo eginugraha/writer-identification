@@ -393,7 +393,24 @@ python scripts/eval_only.py --arch swin_tiny \
 
 > **Prasyarat yang mudah hilang.** `results/checkpoints*/` ada di `.gitignore` dan tidak ikut ke mana-mana. Kalau pod sudah dihapus atau folder itu sudah dibersihkan, `swin_tiny_L1_pretrained_s*/best.pt` tidak ada lagi dan FT5 mustahil dijalankan apa adanya — runner-nya berhenti menyebut path yang hilang. Jalan keluarnya: latih ulang FT0 lima seed di mesin dengan versi torch/timm yang sama seperti tercatat di `results-pretrained.csv`, lalu **cocokkan dulu** angka FT0 hasil latih ulang dengan yang lama sebelum FT5 dipakai sebagai pembanding.
 
-`--source` mengisi posisi mode pada `run_id` sumber, jadi `--source FT1 --src-ckpt-root results/checkpoints-finetune-swin` mengukur kebalikannya: bobot FT1, tapi diuji satu potongan. Itu melengkapi tabel 2×2-nya (lihat [dokumentasi/04](dokumentasi/04-skenario-fine-tuning.md)), meski bukan bagian dari permintaan awal.
+Dua lanjutannya memakai jalur yang sama, sama-sama tanpa pelatihan — checkpoint sumbernya kali ini dari Studi 2:
+
+```bash
+# FT6 — sel keempat 2x2: bobot FT1, diuji satu potongan tengah
+python scripts/eval_only.py --arch swin_tiny --scenario FT6 --source FT1 \
+  --src-ckpt-root results/checkpoints-finetune-swin --date evalonly-swin
+
+# 9-crop untuk AUG dan FT4 — peringkat Tabel 8 disusun di bawah protokol uji
+# lama, sementara protokol uji sendirian bernilai +9,42 poin
+python scripts/eval_only.py --arch swin_tiny --scenario FT5 --source AUG \
+  --src-ckpt-root results/checkpoints-finetune-swin --date evalonly-swin
+python scripts/eval_only.py --arch swin_tiny --scenario FT7 --source FT4 \
+  --src-ckpt-root results/checkpoints-finetune-swin --date evalonly-swin
+```
+
+FT4 butuh skenario tersendiri (`FT7`) dan bukan `FT5`: checkpoint-nya berkepala ArcFace, dan `run_eval_only` membangun modelnya dari skenario — kepala yang tidak cocok membuat `load_state_dict` menolak bobotnya.
+
+`run_id` run-run itu menyebut sumber bobotnya (`swin_tiny_L1_FT5-from-AUG_s0`). Tanpa itu "9-crop atas FT0" dan "9-crop atas AUG" bertabrakan, dan `already_done` melewati yang kedua sebagai sudah selesai. Sumber `pretrained` tetap implisit, jadi baris FT5 yang sudah tertulis tidak berubah bentuk.
 
 ## Langkah 7 — Laporan
 

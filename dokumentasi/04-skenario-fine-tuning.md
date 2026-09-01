@@ -25,7 +25,14 @@ salah satunya.
 | `FT3` | `freeze_strategy` | `S3` |
 | `FT4` | `head` | `arcface` |
 | `FT5` | `eval_crops` | 9 |
+| `FT6` | `geometry` | `linewindow` (uji 1 potongan) |
+| `FT7` | `head`, `eval_crops` | `arcface`, 9 |
 | `AUG` | `aug` | `strong` |
+
+`FT5`–`FT7` tidak melatih apa pun: ketiganya menilai ulang checkpoint yang sudah
+ada dengan protokol uji berbeda, lewat `scripts/eval_only.py`. `FT7` menyalin
+kepala ArcFace dari `FT4` bukan sebagai mekanisme, melainkan karena tanpa kepala
+yang sama `load_state_dict` menolak memuat bobotnya.
 
 `FT2` mengubah dua medan sekaligus, tapi keduanya adalah satu mekanisme yang
 sama — regularisasi bawaan yang lazim dipakai bersama pada ConvNeXt/Swin.
@@ -69,10 +76,14 @@ jendela yang sama persis; yang berbeda hanya bobotnya. Dengan begitu:
 | | uji 1 potongan | uji 9 jendela |
 |---|---|---|
 | latih `center` | FT0 | **FT5** |
-| latih `linewindow` | (belum dijalankan) | FT1 |
+| latih `linewindow` | **FT6** | FT1 |
 
 - **FT5 − FT0** = efek murni *test-time ensemble*;
-- **FT1 − FT5** = sisanya, milik *sliding-window training*.
+- **FT1 − FT5** = sisanya, milik *sliding-window training*;
+- **FT6 − FT0** = efek sliding-window training **sendirian**, tanpa dibantu
+  perata-rataan sembilan jendela. Kolom kiri dan kolom kanan tidak harus
+  sepakat: mungkin saja pelatihan itu baru berguna setelah protokol ujinya ikut
+  berubah, dan hanya sel keempat yang bisa membedakannya.
 
 Kalau FT5 sudah mendekati FT1, klaimnya harus berubah jadi "ensemble multi-crop
 saat inferensi adalah kuncinya, bukan strategi latih". Kalau FT5 hanya sedikit

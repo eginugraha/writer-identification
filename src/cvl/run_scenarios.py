@@ -107,7 +107,7 @@ def run_eval_only(manifest, name, seeds, results_csv, src_ckpt_root, device, hp,
     sc = SCENARIOS[name]
     src_ckpt_root = Path(src_ckpt_root)
     for seed in seeds:
-        rid = scenario_run_id(name, seed, arch=arch, level=level)
+        rid = scenario_run_id(name, seed, arch=arch, level=level, source=source)
         if already_done(results_csv, rid):
             print(f"skip {rid}"); continue
         src_rid = run_id(arch, level, source, seed)
