@@ -92,23 +92,44 @@ Dua hipotesis bersaing tentang penghambat utama di L1, diuji langsung oleh Studi
 `label_smoothing=0.1` — resep regularisasi standar. Hasilnya **−0,06 poin,
 t = −0,09**. Bukan efek kecil, melainkan nol.
 
-**H4 (cakupan baris) didukung kuat.** FT1 mengganti geometri masukan sehingga
-model melihat seluruh panjang baris, bukan strip tengah 7,5%. Hasilnya
-**+14,22 poin `top1_page`** (t = +15,17) dan `map_line` naik dari 0,283 ke 0,852.
+**H4 (cakupan baris) didukung, tapi maknanya bergeser.** FT1 mengganti geometri
+masukan sehingga model melihat seluruh panjang baris, bukan strip tengah 7,5%.
+Hasilnya **+14,22 poin `top1_page`** (t = +15,17) dan `map_line` naik dari 0,283
+ke 0,852.
 
 Selisihnya tidak sebanding: satu mekanisme memberi nol, satunya memberi 14 poin.
 Yang kurang pada L1 bukan pengekangan kapasitas model, melainkan **informasi yang
 sampai ke model**.
 
-Kenaikan `top1_retrieval` dari 0,400 ke 0,961 memperkuatnya. Metrik itu tidak
-memakai kepala klasifikasi sama sekali, jadi yang membaik adalah representasinya
-— bukan sekadar batas keputusan.
+**Tapi informasi itu ternyata sebagian besar bisa ditambahkan saat uji, bukan
+saat latih.** FT5 menjalankan protokol uji FT1 — sembilan jendela dirata-rata —
+di atas checkpoint FT0 tanpa mengubah satu pun parameter. Hasilnya +9,42 poin,
+yakni **66,2%** dari seluruh kenaikan FT1. Sisa +4,81 poin (t = 22,31) milik
+sliding-window training dan tetap signifikan — bahkan lebih besar daripada efek
+AUG (+2,34) maupun FT4 (+1,82). Pada `macro_f1` porsi latihnya lebih besar lagi
+(+6,12; t = 16,16), yang menunjukkan pelatihan sliding-window paling menolong
+penulis-penulis sulit. Pada `top5_page` porsi latihnya nol (+0,06; t = 1,00,
+tidak signifikan).
 
-> **Batasan yang wajib disebut.** FT1 mengubah geometri latih *dan* protokol
-> evaluasi (`eval_crops=9`) sekaligus. Kenaikannya karena itu belum bisa dibagi
-> antara "model melihat lebih banyak saat latih" dan "prediksi dirata-ratakan
-> atas sembilan jendela saat uji". Eksperimen pemisahnya sederhana —
-> `geometry="linewindow"` dengan `eval_crops=1` — dan belum dijalankan.
+Jadi H4 bertahan dalam bentuk yang lebih tepat: **yang menghambat memang cakupan
+baris, tapi dua pertiga penghambatnya bisa dilepas tanpa melatih ulang apa pun**
+— cukup dengan berhenti menilai satu penulis dari satu potongan 7,5% saat
+inferensi.
+
+**Klaim representasi yang harus ditarik.** Edisi sebelum FT5 menuliskan bahwa
+lompatan `top1_retrieval` 0,400 → 0,961 membuktikan yang membaik adalah
+representasinya, karena metrik itu tidak memakai kepala klasifikasi. Argumen itu
+gugur: FT5 memakai bobot FT0 yang identik dan sudah mencapai 0,9313 — 94,8% dari
+lompatan tersebut — dan `map_line` 91,0%. Metrik retrieval tidak mengukur
+kualitas representasi kalau protokol ujinya ikut berubah; yang naik adalah
+kestabilan rata-rata sembilan jendela. (Untuk AUG dan FT4 klaim serupa **tetap
+sah**, karena keduanya memakai `eval_crops=1` yang sama dengan FT0.)
+
+> **Batasan yang tersisa.** Angka +4,81 poin adalah efek geometri latih *dengan
+> syarat* protokol uji 9-crop sudah dipakai. Apakah sliding-window training
+> sendirian — dilatih `linewindow` tapi diuji satu potongan tengah — juga
+> menolong, belum diuji. Itu sel keempat dari tabel 2×2, dan bisa dijalankan
+> tanpa latih ulang: `scripts/eval_only.py --source FT1`.
 
 ## H5 — membekukan lapisan awal justru merugikan
 
@@ -135,15 +156,24 @@ FT3 diam-diam identik dengan baseline pada Swin.
    EfficientNetV2-S adalah satu-satunya pilihan yang andal di sini.
 
 3. **Penghambat terbesar bukan arsitektur maupun overfitting, melainkan
-   pra-pemrosesan.** Memperbaiki cakupan baris memberi +14,2 poin — lebih besar
-   daripada seluruh jarak antar-arsitektur di L1 (10,3 poin). Satu keputusan
-   pra-pemrosesan mengalahkan seluruh pilihan arsitektur.
+   cakupan baris.** Memperbaikinya memberi +14,2 poin — lebih besar daripada
+   seluruh jarak antar-arsitektur di L1 (10,3 poin). Satu keputusan tentang
+   *bagian mana dari baris yang dilihat* mengalahkan seluruh pilihan arsitektur.
 
-4. **Regularisasi tambahan tidak membantu; freeze lapisan awal merugikan.** Dua
+4. **Dua pertiga perbaikan itu terletak di protokol inferensi, bukan di
+   pelatihan.** Merata-ratakan sembilan jendela saat uji, di atas bobot yang
+   sama sekali tidak diubah, sudah memberi +9,42 poin dari +14,22 (66,2%);
+   sisanya +4,81 poin milik sliding-window training dan tetap signifikan
+   (t = 22,31). Ini perbaikan termurah dalam seluruh studi: nol detik pelatihan,
+   hanya sembilan kali biaya evaluasi. Konsekuensi metodologisnya melampaui
+   tugas ini — **membandingkan metode yang protokol ujinya berbeda akan
+   mengatributkan ke pelatihan apa yang sebenarnya milik inferensi.**
+
+5. **Regularisasi tambahan tidak membantu; freeze lapisan awal merugikan.** Dua
    resep yang lazim dianggap "praktik baik" untuk fine-tuning tidak terbukti di
    tugas ini — satu nol, satu negatif.
 
-5. **Augmentasi kuat dan ArcFace memperbaiki representasi tingkat baris**
+6. **Augmentasi kuat dan ArcFace memperbaiki representasi tingkat baris**
    (`map_line` +4,06 dan +5,34, keduanya signifikan) **tanpa memperbaiki akurasi
    tingkat halaman.** Perata-rataan ~8 baris per halaman sudah menyerap sebagian
    besar manfaatnya. Untuk tugas yang hanya punya satu baris, keduanya tetap
@@ -151,9 +181,18 @@ FT3 diam-diam identik dengan baseline pada Swin.
 
 ## Yang belum dikerjakan
 
-- **Memisahkan efek FT1.** Satu run dengan `geometry="linewindow"` dan
-  `eval_crops=1` akan membelah +14,2 poin itu menjadi kontribusi latih dan
-  kontribusi evaluasi. Ini pekerjaan paling bernilai berikutnya.
+- ~~**Memisahkan efek FT1.**~~ **Selesai** (FT5, 2026-09-01): +9,42 poin dari
+  protokol uji, +4,81 poin dari geometri latih. Yang tersisa hanyalah sel
+  keempat — dilatih `linewindow` tapi diuji satu potongan — untuk mengetahui
+  apakah sliding-window training menolong tanpa bantuan 9-crop. Bisa dijalankan
+  tanpa latih ulang: `scripts/eval_only.py --source FT1`.
+- **9-crop pada skenario lain.** AUG dan FT4 dinilai dengan `eval_crops=1`.
+  Karena 9-crop saja memberi +9,42 poin di atas FT0, keduanya berpotensi
+  terlihat jauh berbeda di bawah protokol uji yang sama dengan FT1 — dan
+  peringkat Tabel 8 disusun di bawah protokol lama.
+- **Jumlah jendela.** Sembilan dipilih tanpa penalaan sama sekali. Kurva
+  akurasi terhadap `eval_crops` (1, 3, 5, 9, 15) sekarang murah didapat: tidak
+  ada pelatihan, cukup mengulang `eval_only.py`.
 - **FT1 pada arsitektur lain.** Kalau cakupan baris memang penghambat dominan,
   peringkat arsitektur bisa berubah setelah semuanya memakai `linewindow`.
   Kesimpulan 1 hanya berlaku di bawah geometri `center`.

@@ -80,7 +80,7 @@ hanya sah dipakai untuk memilih checkpoint, bukan dilaporkan sebagai hasil.
 
 ### Model hanya melihat 7,5% dari tiap baris
 
-Dengan `geometry="center"` (dipakai seluruh Studi 1 dan lima dari enam skenario
+Dengan `geometry="center"` (dipakai seluruh Studi 1 dan enam dari tujuh skenario
 Studi 2), `T.Resize(224)` menyetel **sisi pendek** sehingga baris 12:1 melebar
 jadi sekitar 3.284 × 224 piksel. Lalu:
 
@@ -96,4 +96,11 @@ angka Studi 1 dicapai hanya dari potongan tengah baris.
 Ini bukan kelalaian yang tidak disadari — skenario `FT1` di
 [04-skenario-fine-tuning.md](04-skenario-fine-tuning.md) dirancang khusus untuk
 mengukur dampaknya, dan hasilnya ada di
-[07-hasil-eksperimen-finetune.md](07-hasil-eksperimen-finetune.md).
+[07-hasil-eksperimen-finetune.md](07-hasil-eksperimen-finetune.md): +14,2 poin
+`top1_page`.
+
+Yang mengejutkan datang dari `FT5`: **dua pertiga kerugian itu bisa ditebus
+tanpa melatih ulang apa pun**, cukup dengan berhenti menilai satu penulis dari
+satu potongan tengah saat inferensi (+9,42 dari +14,22 poin). Jadi 92,5% yang
+terbuang bukan hanya soal apa yang dilihat model saat *latih*, tapi terutama
+soal apa yang dilihatnya saat *uji*.
