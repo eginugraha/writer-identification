@@ -8,10 +8,10 @@ ablasi data terbatas dan dua studi terpisah.
 | 01 | [Dataset](01-dataset.md) | CVL, kohor 308 penulis, pembagian train/val/test | tulisan tangan |
 | 02 | [Arsitektur](02-arsitektur.md) | Lima arsitektur yang dibandingkan | tulisan tangan |
 | 03 | [Protokol pelatihan](03-protokol-pelatihan.md) | Resep scratch dan pretrained | tulisan tangan |
-| 04 | [Skenario fine-tuning](04-skenario-fine-tuning.md) | Enam skenario Studi 2 | tulisan tangan |
+| 04 | [Skenario fine-tuning](04-skenario-fine-tuning.md) | Tujuh skenario Studi 2 | tulisan tangan |
 | 05 | [Hasil scratch](05-hasil-eksperimen-scratch.md) | Tabel hasil mode scratch | **dibangkitkan** |
 | 06 | [Hasil pretrained](06-hasil-eksperimen-pretrained.md) | Tabel hasil mode pretrained | **dibangkitkan** |
-| 07 | [Hasil fine-tuning](07-hasil-eksperimen-finetune.md) | Studi 2, sebagian masih berjalan | tulisan tangan |
+| 07 | [Hasil fine-tuning](07-hasil-eksperimen-finetune.md) | Studi 2, termasuk pembelahan FT1 lewat FT5 | tulisan tangan |
 | 08 | [Hipotesis dan kesimpulan](08-hipotesis-dan-kesimpulan.md) | Sintesis ketiga eksperimen | tulisan tangan |
 
 **Berkas 05 dan 06 dibangkitkan ulang oleh `scripts/make_report.py`** — jangan
@@ -25,15 +25,18 @@ python scripts/make_figures.py
 
 Berkas lain ditulis tangan dan aman disunting.
 
-## Status per 2026-08-09
+## Status per 2026-09-01
 
 | Eksperimen | Run | Status |
 |---|---|---|
 | Studi 1 — scratch | 100/100 | selesai |
 | Studi 1 — pretrained | 100/100 | selesai |
 | Studi 2 — fine-tuning Swin-Tiny | 25/25 | selesai |
+| Studi 2 — FT5 (eval-only, tanpa latih) | 5/5 | selesai |
 
-Ketiganya lengkap 5 seed, jadi seluruh angka di berkas 05–08 sudah final.
+Semuanya lengkap 5 seed, jadi seluruh angka di berkas 05–08 sudah final.
+FT5 dijalankan belakangan (2026-09-01) tanpa pelatihan: ia mengevaluasi ulang
+checkpoint FT0 dengan protokol uji FT1.
 Pekerjaan lanjutan yang belum dijalankan didaftar di
 [08-hipotesis-dan-kesimpulan.md](08-hipotesis-dan-kesimpulan.md#yang-belum-dikerjakan).
 
