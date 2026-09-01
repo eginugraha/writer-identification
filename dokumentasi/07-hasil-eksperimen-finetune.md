@@ -59,7 +59,7 @@ berpasangan per seed. Selisih dalam poin persentase; `*` = |t| > 2,776.
 | FT1 − FT0 (total) | +14,22 t=15,17 * | +5,39 t=19,04 * | +17,63 t=13,40 * | +56,93 t=210,18 * | +56,02 t=208,30 * |
 | **porsi yang dijelaskan 9-crop saja** | **66,2%** | 98,8% | **65,3%** | 91,0% | 94,8% |
 
-Dihitung ulang kapan saja dengan `python scripts/banding_ft5.py --arch swin_tiny`.
+Dihitung ulang kapan saja dengan `python scripts/banding_protokol.py --arch swin_tiny`.
 
 ## Bacaan
 
