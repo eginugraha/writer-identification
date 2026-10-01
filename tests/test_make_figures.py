@@ -54,6 +54,14 @@ def test_label_kolaps_ikut_saat_seed_lain(tmp_path):
     assert "2/3" in " ".join(hasil["labels"])
 
 
+def test_trainability_versi_inggris(tmp_path):
+    hasil = mf.scratch_trainability_bar(
+        _df("scratch", seeds=5, kolaps=[("swin_tiny", 4)]), tmp_path / "a.png", lang="en")
+    label = " ".join(hasil["labels"])
+    assert "collapsed 4/5" in label
+    assert "kolaps" not in label
+
+
 def test_judul_sumbu_leaderboard_menyebut_jumlah_seed_sebenarnya(tmp_path):
     hasil = mf.leaderboard_pretrained(_df("pretrained", seeds=5), tmp_path / "b.png")
     assert "5 seed" in hasil["xlabel"]
@@ -121,18 +129,21 @@ def test_membaca_dua_csv_terpisah(tmp_path, monkeypatch):
         "results-pretrained.csv": _df("pretrained"),
         "results-scratch.csv": _df("scratch", kolaps=[("swin_tiny", 4)]),
     })
-    assert png == ["leaderboard_pretrained.png", "scratch_trainability.png"]
+    assert png == ["acc_vs_n_pretrained_en.png", "acc_vs_n_scratch_en.png",
+                   "leaderboard_pretrained.png", "scratch_trainability.png",
+                   "scratch_trainability_en.png"]
 
 
 def test_csv_scratch_saja_melewati_leaderboard(tmp_path, monkeypatch):
     png = _jalankan(tmp_path, monkeypatch,
                     {"results-scratch.csv": _df("scratch", kolaps=[("swin_tiny", 4)])})
-    assert png == ["scratch_trainability.png"]
+    assert png == ["acc_vs_n_scratch_en.png", "scratch_trainability.png",
+                   "scratch_trainability_en.png"]
 
 
 def test_csv_pretrained_saja_melewati_trainability(tmp_path, monkeypatch):
     png = _jalankan(tmp_path, monkeypatch, {"results-pretrained.csv": _df("pretrained")})
-    assert png == ["leaderboard_pretrained.png"]
+    assert png == ["acc_vs_n_pretrained_en.png", "leaderboard_pretrained.png"]
 
 
 def test_csv_hilang_gagal_cepat(tmp_path, monkeypatch):

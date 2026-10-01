@@ -18,6 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from src.cvl.report import plot_accuracy_vs_n  # noqa: E402
 
 DISP = {"resnet50": "ResNet-50", "efficientnetv2_s": "EfficientNetV2-S",
         "vit_small": "ViT-S/16", "swin_tiny": "Swin-T", "convnext_tiny": "ConvNeXt-T"}
@@ -65,7 +66,16 @@ def leaderboard_pretrained(df, out_png):
     return {"labels": labels, "means": means, "lim": lim, "xlabel": xlabel}
 
 
-def scratch_trainability_bar(df, out_png, collapse_thresh=0.05):
+TEKS_TRAIN = {
+    "id": dict(kolaps="kolaps", ylabel="Rerata Top-1 (halaman) @ L4, {n} seed",
+               title="Trainability dari scratch — hijau: tak kolaps, merah: ada kolaps"),
+    "en": dict(kolaps="collapsed", ylabel="Mean Top-1 (page) @ L4, {n} seeds",
+               title="Trainability from scratch — green: no collapse, red: collapse"),
+}
+
+
+def scratch_trainability_bar(df, out_png, collapse_thresh=0.05, lang="id"):
+    teks = TEKS_TRAIN[lang]
     s = df[(df["mode"] == "scratch") & (df["level"].astype(str) == "4")]
     n_seed = s["seed"].nunique()
     # urutan dari data (terbaik ke terburuk), bukan daftar tetap: arsitektur
@@ -75,7 +85,7 @@ def scratch_trainability_bar(df, out_png, collapse_thresh=0.05):
     for arch, m in g.items():
         vals = s[s.arch == arch]["top1_page"]
         n_coll = int((vals < collapse_thresh).sum())
-        labels.append(f"{nama_tampil(arch)}\n(kolaps {n_coll}/{n_seed})")
+        labels.append(f"{nama_tampil(arch)}\n({teks['kolaps']} {n_coll}/{n_seed})")
         means.append(float(m))
         colors.append("#C44E52" if n_coll > 0 else "#55A868")
     lim = batas_sumbu(means + [0.0])
@@ -86,17 +96,24 @@ def scratch_trainability_bar(df, out_png, collapse_thresh=0.05):
         plt.text(b.get_x() + b.get_width() / 2, m + (lim[1] - lim[0]) * 0.02,
                  f"{m:.3f}", ha="center", fontsize=9)
     plt.ylim(*lim)
-    plt.ylabel(f"Rerata Top-1 (halaman) @ L4, {n_seed} seed")
-    plt.title("Trainability dari scratch — hijau: tak kolaps, merah: ada kolaps")
+    plt.ylabel(teks["ylabel"].format(n=n_seed))
+    plt.title(teks["title"])
     plt.grid(axis="y", alpha=0.3)
     plt.tight_layout(); plt.savefig(out_png, dpi=150); plt.close()
     return {"labels": labels, "means": means, "lim": lim}
 
 
 GRAFIK = {
-    "pretrained": ("leaderboard_pretrained.png", leaderboard_pretrained),
-    "scratch": ("scratch_trainability.png", scratch_trainability_bar),
+    "pretrained": [("leaderboard_pretrained.png", leaderboard_pretrained)],
+    "scratch": [("scratch_trainability.png", scratch_trainability_bar),
+                ("scratch_trainability_en.png",
+                 lambda df, out: scratch_trainability_bar(df, out, lang="en"))],
 }
+# Versi Inggris grafik akurasi vs N (untuk paper-en.md), satu per mode.
+for _m in ("pretrained", "scratch"):
+    GRAFIK[_m].append((f"acc_vs_n_{_m}_en.png",
+                       lambda df, out, m=_m: plot_accuracy_vs_n(
+                           df, m, out, exclude_levels=("full",), lang="en")))
 BAWAAN = ["results/results-pretrained.csv", "results/results-scratch.csv"]
 
 
@@ -126,12 +143,13 @@ def main():
     fig = Path("results/figures"); fig.mkdir(parents=True, exist_ok=True)
 
     ditulis = []
-    for mode, (nama, fn) in GRAFIK.items():
-        if mode not in modes:
-            print(f"(mode {mode} tidak ada di CSV sumber -> {nama} dilewati)")
-            continue
-        fn(df, fig / nama)
-        ditulis.append(nama)
+    for mode, daftar in GRAFIK.items():
+        for nama, fn in daftar:
+            if mode not in modes:
+                print(f"(mode {mode} tidak ada di CSV sumber -> {nama} dilewati)")
+                continue
+            fn(df, fig / nama)
+            ditulis.append(nama)
     if ditulis:
         print(f"figures written to results/figures/: {', '.join(ditulis)}")
 

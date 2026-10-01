@@ -109,7 +109,13 @@ def efficiency_markdown(df, mode: str) -> str:
         lines.append(f"| {row['arch']} | " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
-def plot_accuracy_vs_n(df, mode: str, out_png, exclude_levels=()):
+TEKS_ACC = {
+    "id": ("halaman latih / penulis (N)", "Top-1 (halaman)", "Akurasi vs data latih ({mode})"),
+    "en": ("training pages / writer (N)", "Top-1 (page)", "Accuracy vs training data ({mode})"),
+}
+
+def plot_accuracy_vs_n(df, mode: str, out_png, exclude_levels=(), lang="id"):
+    xlabel, ylabel, title = TEKS_ACC[lang]
     s = summarize(df); s = s[s["mode"] == mode]
     exclude = {str(x) for x in exclude_levels}
     s = s[~s["level"].astype(str).isin(exclude)]
@@ -121,6 +127,6 @@ def plot_accuracy_vs_n(df, mode: str, out_png, exclude_levels=()):
         plt.errorbar(range(len(sub)), sub["top1_page_mean"], yerr=sub["top1_page_std"],
                      marker="o", label=a, capsize=3)
         plt.xticks(range(len(sub)), [str(x) for x in sub["level"]])
-    plt.xlabel("halaman latih / penulis (N)"); plt.ylabel("Top-1 (halaman)")
-    plt.title(f"Akurasi vs data latih ({mode})"); plt.legend(); plt.grid(alpha=0.3)
+    plt.xlabel(xlabel); plt.ylabel(ylabel)
+    plt.title(title.format(mode=mode)); plt.legend(); plt.grid(alpha=0.3)
     plt.tight_layout(); plt.savefig(out_png, dpi=150); plt.close()
