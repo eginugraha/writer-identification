@@ -42,7 +42,6 @@ Butuh **dua pod GPU**, keduanya **NVIDIA RTX PRO 4000 Blackwell** (25 GB VRAM). 
 
 ```bash
 git clone <url-repo> thesis && cd thesis
-git checkout research
 
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
