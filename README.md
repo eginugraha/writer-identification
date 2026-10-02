@@ -453,13 +453,13 @@ Setelah `run_scenarios.py` menulis `results-finetune-swin.csv`, jangan berhenti 
 
 - Baris baseline `FT0` **tidak ada** di `results-finetune-swin.csv` (sengaja dilewati). Ambil dari `results-pretrained.csv`, dengan `run_id` berpola `swin_tiny_L1_pretrained_s*` — sesuaikan dengan `--arch` yang Anda pakai.
 - `make_report.py` buta terhadap kolom `scenario`: ia mengelompokkan hanya berdasarkan `(arch, level, mode)`, jadi kalau dijalankan atas `results-finetune-swin.csv` keenam skenario akan tercampur jadi satu baris. Jangan pakai untuk Studi 2.
-- Perbandingan enam skenario dan uji-t berpasangan di §6 spec dilakukan **manual** dari kedua CSV di atas (gabungkan `FT0` dari `results-pretrained.csv` dengan `FT1`–`AUG` dari `results-finetune-swin.csv`, lalu ikuti aturan kolaps yang sama seperti Studi 1).
+- Perbandingan enam skenario dan uji-t berpasangan dilakukan **manual** dari kedua CSV di atas (gabungkan `FT0` dari `results-pretrained.csv` dengan `FT1`–`AUG` dari `results-finetune-swin.csv`, lalu ikuti aturan kolaps yang sama seperti Studi 1).
 
 ---
 
 ## Aturan pelaporan hasil
 
-Tiga aturan yang mempengaruhi cara angka dibaca — rinciannya di §6 spec.
+Tiga aturan yang mempengaruhi cara angka dibaca:
 
 **Run kolaps tidak masuk rata-rata.** Kriteria kolaps: `top1_page < 0,05` (model memprediksi ~1 kelas). Laporkan `kolaps 2/5; rata-rata run sehat 0,82 ± 0,03`, bukan rata-rata gabungan yang mencampur keduanya. Pada grid sebelumnya 31 dari 75 run scratch kolaps meski warmup aktif — ini temuan, bukan bug.
 
@@ -499,5 +499,5 @@ Baris yang diisi = subset; dikosongkan atau dihapus = nilai penuh. Environment v
 
 - Metrik retrieval (mAP) dihitung di level baris pada set test (leave-one-out, self dikecualikan); metrik klasifikasi diagregasi ke level halaman (rata-rata softmax per `writer|page`).
 - Augmentasi sengaja **tanpa horizontal flip** — membalik tulisan merusak identitas penulis.
-- **Citra baris berasio ~12:1, dan pipeline saat ini hanya melihat 7,5% bagian tengahnya.** `Resize(224)` menyetel sisi pendek, lalu `RandomResizedCrop` dengan `ratio=(0.9,1.1)` tidak pernah bisa dipenuhi sehingga jatuh ke center-crop deterministik — artinya crop itu juga bukan augmentasi. Skenario `FT1` menguji perbaikannya secara terkendali; grid utama sengaja dibiarkan apa adanya. Lihat §2 spec.
+- **Citra baris berasio ~12:1, dan pipeline saat ini hanya melihat 7,5% bagian tengahnya.** `Resize(224)` menyetel sisi pendek, lalu `RandomResizedCrop` dengan `ratio=(0.9,1.1)` tidak pernah bisa dipenuhi sehingga jatuh ke center-crop deterministik — artinya crop itu juga bukan augmentasi. Skenario `FT1` menguji perbaikannya secara terkendali; grid utama sengaja dibiarkan apa adanya.
 - GFLOPs belum dihitung (efisiensi dilaporkan lewat jumlah parameter + throughput).
