@@ -34,7 +34,7 @@ results/          # manifests, checkpoints, CSV, figures (dibuat otomatis)
 
 # Eksekusi di cloud
 
-Butuh **dua pod GPU**. Server 1 mengerjakan mode scratch, server 2 mengerjakan pretrained lalu Studi 2.
+Butuh **dua pod GPU**, keduanya **NVIDIA RTX PRO 4000 Blackwell** (25 GB VRAM). Server 1 mengerjakan mode scratch, server 2 mengerjakan pretrained lalu Studi 2.
 
 > **Kedua pod wajib memakai model GPU yang sama.** Bukan soal kecepatan — AMP aktif dan perilaku TF32/bf16 berbeda antar generasi GPU. Temuan utama mode scratch adalah klaim *stabilitas* ("kolaps x/5 seed"), dan stabilitas optimisasi paling peka terhadap presisi numerik. Kartu berbeda membuat temuan itu tidak bisa dipertahankan, dan menyamakannya tidak menambah biaya.
 
@@ -51,11 +51,6 @@ python -m pip install -r requirements.txt
 Butuh Python ≥3.10. Semua perintah `python scripts/...` dijalankan **dari root repo**.
 
 > **Pakai `python -m pip`, bukan `pip` polos.** Pada image RunPod, `pip` sering menunjuk ke Python lain meski prompt sudah menampilkan `(.venv)`. Gejalanya menyesatkan: pemasangan melaporkan sukses, tapi `import` tetap gagal dengan `ModuleNotFoundError`. Bentuk `python -m pip` menjamin paket masuk ke interpreter yang sama dengan yang menjalankan skrip.
->
-> Kalau instalasi gagal karena kehabisan ruang — `torch` sekitar 2,5 GB plus cache seukuran itu, dan container disk RunPod jauh lebih kecil daripada volume `/workspace` — arahkan cache-nya ke volume:
-> ```bash
-> TMPDIR=/workspace/tmp python -m pip install --cache-dir /workspace/.pipcache -r requirements.txt
-> ```
 
 Verifikasi paketnya benar-benar masuk sebelum lanjut:
 
@@ -440,10 +435,10 @@ python scripts/make_report.py --results results/results-pretrained.csv --date pr
 python scripts/make_report.py --results results/results-scratch.csv --date scratch
 ```
 
-`make_report.py` membaca kolom `mode` dan hanya menulis bagian yang datanya ada. CSV scratch-only menghasilkan laporan scratch saja, dengan figure `acc_vs_n_scratch-scratch.png`; baris terakhirnya memberi tahu bagian mana yang dilewati:
+`make_report.py` membaca kolom `mode` dan hanya menulis bagian yang datanya ada. CSV scratch-only menghasilkan laporan scratch saja di `results/docs/05-hasil-eksperimen-scratch.md`, dengan figure `acc_vs_n_scratch-scratch.png`; baris terakhirnya memberi tahu bagian mana yang dilewati:
 
 ```
-report written to dokumentasi/08-hasil-eksperimen-scratch.md
+report written to results/docs/05-hasil-eksperimen-scratch.md
 figure written to results/figures/acc_vs_n_scratch-scratch.png
 (mode pretrained tidak ada di CSV ini -> bagiannya dilewati)
 ```
@@ -507,7 +502,7 @@ R=/workspace/writer-identification
 # server 1
 rsync -av <pod1>:$R/results/results-scratch.csv results/
 rsync -av <pod1>:$R/results/figures/ results/figures/
-rsync -av <pod1>:$R/dokumentasi/05-hasil-eksperimen-scratch.md dokumentasi/
+rsync -av <pod1>:$R/results/docs/05-hasil-eksperimen-scratch.md results/docs/
 rsync -av <pod1>:$R/run-scratch.log logs/
 
 # server 2
@@ -515,7 +510,7 @@ rsync -av <pod2>:$R/results/results-pretrained.csv \
           <pod2>:$R/results/results-finetune-swin.csv \
           <pod2>:$R/results/results-evalonly-swin.csv results/
 rsync -av <pod2>:$R/results/figures/ results/figures/
-rsync -av <pod2>:$R/dokumentasi/06-hasil-eksperimen-pretrained.md dokumentasi/
+rsync -av <pod2>:$R/results/docs/06-hasil-eksperimen-pretrained.md results/docs/
 rsync -av <pod2>:$R/run-*.log logs/
 ```
 
