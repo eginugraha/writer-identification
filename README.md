@@ -41,7 +41,8 @@ Butuh **dua pod GPU**, keduanya **NVIDIA RTX PRO 4000 Blackwell** (25 GB VRAM). 
 ## Langkah 1 — Siapkan server 1
 
 ```bash
-git clone <url-repo> thesis && cd thesis
+cd /workspace
+git clone https://github.com/eginugraha/writer-identification.git && cd writer-identification
 
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -441,6 +442,8 @@ report written to results/docs/05-hasil-eksperimen-scratch.md
 figure written to results/figures/acc_vs_n_scratch-scratch.png
 (mode pretrained tidak ada di CSV ini -> bagiannya dilewati)
 ```
+
+`results/docs/` diabaikan git, jadi laporan tidak ikut ter-commit maupun ter-push — ambil lewat `rsync` di Langkah 9 sebelum pod dihapus.
 
 Kalau Anda menggabungkan kedua CSV jadi satu berkas, laporannya memuat kedua bagian sekaligus — tidak perlu flag tambahan.
 
