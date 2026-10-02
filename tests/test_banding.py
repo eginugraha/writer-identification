@@ -3,7 +3,7 @@
 Ketiga kondisi ada di CSV berbeda (FT0 di results-pretrained.csv, FT5 di
 results-evalonly-*.csv, FT1 di results-finetune-*.csv) tapi berbagi pola
 run_id yang sama, jadi penyejajarannya lewat seed. Uji-t-nya berpasangan per
-seed — sama seperti tabel signifikansi di dokumentasi/07 — karena kelima seed
+seed — sama seperti tabel signifikansi di results/docs/07 — karena kelima seed
 memakai split yang sama, sehingga variasi antar-seed bisa dibuang.
 """
 import numpy as np

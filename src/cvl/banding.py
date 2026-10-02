@@ -57,7 +57,7 @@ def uji_t(a: pd.Series, b: pd.Series) -> dict:
     """Uji-t berpasangan a - b atas seed yang sama.
 
     `delta_pp` dalam poin persentase, mengikuti cara tabel signifikansi di
-    dokumentasi/07 melaporkannya.
+    results/docs/07 melaporkannya.
     """
     if list(a.index) != list(b.index):
         raise SystemExit(f"seed tidak sejajar: {list(a.index)} vs {list(b.index)}")

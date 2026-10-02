@@ -51,7 +51,7 @@ def bagian_pretrained(df, fig_dir, acc_png):
             "\n\n### Macro-F1 (halaman)\n", pivot_markdown(df, "macro_f1_page", "pretrained", DROP),
             "\n\n### mAP (retrieval, baris)\n", pivot_markdown(df, "map_line", "pretrained", DROP),
             "\n\n### Efisiensi (rata-rata lintas level/seed)\n", efficiency_markdown(df, "pretrained"),
-            f"\n\n![acc](../results/figures/{acc_png})\n"]
+            f"\n\n![acc](../figures/{acc_png})\n"]
 
 
 def bagian_scratch(df, fig_dir, acc_png):
@@ -66,7 +66,7 @@ def bagian_scratch(df, fig_dir, acc_png):
             "\n\n### Macro-F1 per seed @ L4\n",
             scratch_trainability_markdown(df, level=4, metric="macro_f1_page"),
             "\n\n", ringkasan_kolaps(df, level=4, metric="top1_page"),
-            f"\n\n![acc](../results/figures/{acc_png})\n"]
+            f"\n\n![acc](../figures/{acc_png})\n"]
 
 
 # Bagian yang bisa ditulis, dipilih menurut mode yang benar-benar ada di CSV.
@@ -75,7 +75,7 @@ def bagian_scratch(df, fig_dir, acc_png):
 # kosong, bukan error.
 BAGIAN = {"pretrained": bagian_pretrained, "scratch": bagian_scratch}
 
-# Nomor bab di dokumentasi/. Scratch (05) mendahului pretrained (06) karena
+# Nomor bab di results/docs/. Scratch (05) mendahului pretrained (06) karena
 # bab metode memperkenalkan trainability lebih dulu, baru transfer learning.
 # CSV yang memuat kedua mode ditulis sebagai lanjutan bab pretrained.
 NOMOR = {"scratch": "05", "pretrained": "06"}
@@ -84,7 +84,7 @@ NOMOR_GABUNGAN = "06"
 
 def nama_laporan(ada, suffix) -> Path:
     nomor = NOMOR[ada[0]] if len(ada) == 1 else NOMOR_GABUNGAN
-    return Path(f"dokumentasi/{nomor}-hasil-eksperimen{suffix}.md")
+    return Path(f"results/docs/{nomor}-hasil-eksperimen{suffix}.md")
 
 
 def main():

@@ -14,6 +14,7 @@ skripnya tidak ikut menyesuaikan:
 Yang terakhir paling berbahaya: dua yang pertama menghasilkan berkas yang
 jelas terlihat rusak, yang ketiga menghasilkan berkas rapi yang angkanya salah.
 """
+import re
 import sys
 from pathlib import Path
 import pandas as pd
@@ -84,7 +85,7 @@ def _tulis(tmp_path, monkeypatch, df, tag):
     monkeypatch.setattr(sys, "argv",
                         ["make_report.py", "--results", str(csv), "--date", tag])
     mr.main()
-    md = sorted((tmp_path / "dokumentasi").glob("*.md"))
+    md = sorted((tmp_path / "results" / "docs").glob("*.md"))
     assert len(md) == 1, [p.name for p in md]
     return md[0]
 
@@ -94,17 +95,28 @@ def _jalankan(tmp_path, monkeypatch, df, tag):
 
 
 # --------------------------------------------------------------------------
-# penomoran berkas mengikuti urutan bab, bukan satu nomor untuk semua
+# penomoran berkas mengikuti urutan bab, di results/docs/
 # --------------------------------------------------------------------------
 
 def test_laporan_scratch_bernomor_05(tmp_path, monkeypatch):
     p = _tulis(tmp_path, monkeypatch, _df("scratch", kolaps=[("swin_tiny", 4)]), "scratch")
     assert p.name == "05-hasil-eksperimen-scratch.md"
+    assert not (tmp_path / "dokumentasi").exists()
 
 
 def test_laporan_pretrained_bernomor_06(tmp_path, monkeypatch):
     p = _tulis(tmp_path, monkeypatch, _df("pretrained"), "pretrained")
     assert p.name == "06-hasil-eksperimen-pretrained.md"
+
+
+def test_tautan_gambar_menunjuk_figure_yang_ada(tmp_path, monkeypatch):
+    """Tautan relatif terhadap letak laporan; memindah laporan tanpa
+    menyesuaikan tautannya menghasilkan gambar yang tidak tampil."""
+    p = _tulis(tmp_path, monkeypatch, _df("pretrained"), "pretrained")
+    tautan = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", p.read_text())
+    assert tautan
+    for t in tautan:
+        assert (p.parent / t).is_file(), t
 
 
 def test_csv_scratch_tidak_menghasilkan_bagian_pretrained(tmp_path, monkeypatch):

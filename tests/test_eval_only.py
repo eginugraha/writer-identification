@@ -1,7 +1,7 @@
 """FT5: 9-crop averaging saat inferensi di atas bobot FT0, tanpa latih ulang.
 
 FT1 mengubah geometri latih *dan* protokol uji sekaligus (lihat
-dokumentasi/04-skenario-fine-tuning.md), jadi +14,2 poin top1_page-nya tidak
+results/docs/04-skenario-fine-tuning.md), jadi +14,2 poin top1_page-nya tidak
 bisa dibagi antara keduanya. FT5 menjalankan protokol uji FT1 di atas
 checkpoint FT0 yang sudah ada: selisih FT5-FT0 adalah efek murni test-time
 ensemble, sisanya milik sliding-window training.
