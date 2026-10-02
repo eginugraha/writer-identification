@@ -321,6 +321,25 @@ Tiga hal yang perlu Anda tahu saat membacanya:
 - **Baris `cakupan` adalah pemeriksaan `.env` yang sama** seperti di Langkah 5. Kalau daftarnya lebih pendek dari contoh di atas, grid Anda sedang dipersempit.
 - **Estimasinya optimis di awal.** Ia memakai rata-rata run yang sudah selesai, sedangkan grid berjalan dari level kecil ke besar — L4 memakan sekitar tiga kali waktu L1. Angka yang keluar di 10% pertama akan meleset jauh ke bawah; baru mendekati kenyataan setelah setengah jalan.
 
+## Langkah 5b — Periksa integritas CSV
+
+Setelah Studi 1 selesai, periksa CSV di masing-masing server:
+
+```bash
+python scripts/cek_csv.py results/results-scratch.csv      # server 1
+python scripts/cek_csv.py results/results-pretrained.csv   # server 2
+```
+
+Ia mencari dua tanda bahwa dua proses pernah menulis ke CSV yang sama (misalnya `run_all.py` terjalankan dua kali dengan `--date` yang sama): **baris header nyasar** di tengah berkas dan **`run_id` ganda**. Keluaran yang sehat berakhir dengan `Bersih — tidak ada tanda dua proses menulis bersamaan.`, dan jumlah barisnya 100.
+
+Kalau ada yang rusak:
+
+```bash
+python scripts/cek_csv.py results/results-pretrained.csv --bersihkan
+```
+
+Ia menyimpan cadangan `*.csv.sebelum-bersih`, membuang header nyasar, dan membuang **seluruh** baris milik `run_id` yang ganda — bukan menyisakan salah satunya, karena checkpoint keduanya sama-sama ditulis berebut. Hapus folder checkpoint yang dicetaknya (`rm -rf results/checkpoints-<tag>/<run_id>`), lalu ulangi perintah Langkah 5 yang sama persis; run yang dibuang akan dilatih ulang.
+
 ## Langkah 6 — Jalankan Studi 2
 
 Hanya di server 2, setelah bagian **pretrained** Studi 1 selesai di server itu. Tidak perlu menunggu mode scratch di server 1: Studi 2 tidak membaca `results-scratch.csv` sama sekali, jadi menunggu hanya membuat GPU menganggur.
@@ -454,6 +473,55 @@ Setelah `run_scenarios.py` menulis `results-finetune-swin.csv`, jangan berhenti 
 - Baris baseline `FT0` **tidak ada** di `results-finetune-swin.csv` (sengaja dilewati). Ambil dari `results-pretrained.csv`, dengan `run_id` berpola `swin_tiny_L1_pretrained_s*` — sesuaikan dengan `--arch` yang Anda pakai.
 - `make_report.py` buta terhadap kolom `scenario`: ia mengelompokkan hanya berdasarkan `(arch, level, mode)`, jadi kalau dijalankan atas `results-finetune-swin.csv` keenam skenario akan tercampur jadi satu baris. Jangan pakai untuk Studi 2.
 - Perbandingan enam skenario dan uji-t berpasangan dilakukan **manual** dari kedua CSV di atas (gabungkan `FT0` dari `results-pretrained.csv` dengan `FT1`–`AUG` dari `results-finetune-swin.csv`, lalu ikuti aturan kolaps yang sama seperti Studi 1).
+
+Untuk pertanyaan protokol uji, perbandingannya sudah otomatis:
+
+```bash
+python scripts/banding_protokol.py --arch swin_tiny
+```
+
+Ia membaca `results-pretrained.csv` (FT0), `results-finetune-swin.csv`, dan `results-evalonly-swin.csv`, menyejajarkan kondisi per seed, lalu mencetak:
+
+- **Tabel 2×2** FT0 / FT5 / FT6 / FT1 (latih center vs linewindow × uji 1 potongan vs 9 jendela), porsi kenaikan FT1 yang dijelaskan tiap komponen, dan suku interaksinya.
+- **Bobot lain di bawah 9-crop** — AUG dan FT4 yang dinilai ulang dibandingkan terhadap FT5, bukan FT0, karena hanya pasangan itu yang protokol ujinya identik.
+- **Uji-t berpasangan** untuk tiap selisih (`*` = |t| > 2,776, df = 4).
+
+Kondisi yang belum dijalankan (FT6, AUG@9, FT4@9) dilewati dengan pesan, bukan error. Skrip ini tidak menarik torch/timm, jadi bisa dijalankan di laptop atas CSV yang sudah disalin. Perbandingan FT2, FT3, FT4, dan AUG terhadap FT0 di protokol uji lama tetap dilakukan manual seperti di atas.
+
+## Langkah 9 — Ambil hasil & matikan pod
+
+Checkpoint dan CSV tidak ikut git, jadi pod adalah satu-satunya salinan sampai Anda menyalinnya. Pastikan dulu semuanya lengkap:
+
+| Berkas | Target |
+|---|---|
+| `results-scratch.csv` (server 1) | 100 run |
+| `results-pretrained.csv` (server 2) | 100 run |
+| `results-finetune-swin.csv` (server 2) | 25 run |
+| `results-evalonly-swin.csv` (server 2) | 20 run (FT5, FT6, FT5-from-AUG, FT7 × 5 seed) |
+
+Lalu dari laptop (ganti `<pod1>`/`<pod2>` dengan alamat SSH pod, misalnya `root@IP -p PORT` di RunPod):
+
+```bash
+R=/workspace/writer-identification
+
+# server 1
+rsync -av <pod1>:$R/results/results-scratch.csv results/
+rsync -av <pod1>:$R/results/figures/ results/figures/
+rsync -av <pod1>:$R/dokumentasi/05-hasil-eksperimen-scratch.md dokumentasi/
+rsync -av <pod1>:$R/run-scratch.log logs/
+
+# server 2
+rsync -av <pod2>:$R/results/results-pretrained.csv \
+          <pod2>:$R/results/results-finetune-swin.csv \
+          <pod2>:$R/results/results-evalonly-swin.csv results/
+rsync -av <pod2>:$R/results/figures/ results/figures/
+rsync -av <pod2>:$R/dokumentasi/06-hasil-eksperimen-pretrained.md dokumentasi/
+rsync -av <pod2>:$R/run-*.log logs/
+```
+
+Setelah keempat CSV ada di satu tempat, jalankan `make_figures.py` dan `banding_protokol.py` di laptop — keduanya butuh lebih dari satu CSV sekaligus.
+
+Baru setelah itu hentikan lalu hapus (*Terminate*) kedua pod, supaya biaya volume berhenti. Checkpoint (±22 GB total) tidak dibutuhkan untuk analisis, tapi **tanpa checkpoint `swin_tiny_L1_pretrained_s*` FT5 tidak bisa diulang** (lihat Langkah 6b) — unduh folder itu dulu kalau ada kemungkinan evaluasi ulang.
 
 ---
 
