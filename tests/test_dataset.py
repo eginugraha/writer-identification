@@ -53,7 +53,7 @@ def test_resize_height_tidak_pernah_lebih_sempit_dari_tinggi():
 
 
 def _pipeline_pra_refactor(train: bool, image_size: int = 224):
-    """Salinan literal build_transforms sebelum refactor Task 3.
+    """Salinan literal build_transforms sebelum refactor geometri/augmentasi.
 
     Sengaja diduplikasi di dalam test: gunanya justru sebagai pembanding
     independen, supaya kesalahan di _geometry_stage/_aug_stage tidak ikut
