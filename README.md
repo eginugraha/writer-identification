@@ -569,9 +569,9 @@ Baris yang diisi = subset; dikosongkan atau dihapus = nilai penuh. Environment v
 
 ## Contributors
 
-- Putu Bagus Indra Dermawan Kemuning
-- Lawy Xenna L. Gaol
-- Egi Nugraha
+- [Putu Bagus Indra Dermawan Kemuning](https://www.linkedin.com)
+- [Lawy Xenna L. Gaol](https://www.linkedin.com/in/lawy-xenna-aa6a3b222)
+- [Egi Nugraha](https://www.linkedin.com/in/eginugraha)
 
 ## Citation
 
