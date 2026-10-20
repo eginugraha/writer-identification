@@ -566,3 +566,13 @@ Baris yang diisi = subset; dikosongkan atau dihapus = nilai penuh. Environment v
 - Augmentasi sengaja **tanpa horizontal flip** — membalik tulisan merusak identitas penulis.
 - **Citra baris berasio ~12:1, dan pipeline saat ini hanya melihat 7,5% bagian tengahnya.** `Resize(224)` menyetel sisi pendek, lalu `RandomResizedCrop` dengan `ratio=(0.9,1.1)` tidak pernah bisa dipenuhi sehingga jatuh ke center-crop deterministik — artinya crop itu juga bukan augmentasi. Skenario `FT1` menguji perbaikannya secara terkendali; grid utama sengaja dibiarkan apa adanya.
 - GFLOPs belum dihitung (efisiensi dilaporkan lewat jumlah parameter + throughput).
+
+## Contributors
+
+- Putu Bagus Indra Dermawan Kemuning
+- Lawy Xenna L. Gaol
+- Egi Nugraha
+
+## Citation
+
+If you use this work, please cite the thesis (details TBD).
